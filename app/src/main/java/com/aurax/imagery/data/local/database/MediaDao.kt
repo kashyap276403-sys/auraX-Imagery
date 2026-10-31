@@ -23,6 +23,28 @@ abstract class MediaDao {
 
     @Query(
         """
+        SELECT m.*, (f.mediaId IS NOT NULL) AS isFavorite
+        FROM media AS m
+        LEFT JOIN favorites AS f ON f.mediaId = m.id
+        WHERE m.bucketId = :bucketId
+        ORDER BY m.dateTaken DESC
+        """,
+    )
+    abstract fun observeBucketMedia(bucketId: Long): Flow<List<MediaRow>>
+
+    @Query(
+        """
+        SELECT m.*, (f.mediaId IS NOT NULL) AS isFavorite
+        FROM media AS m
+        LEFT JOIN favorites AS f ON f.mediaId = m.id
+        WHERE m.isVideo = 1
+        ORDER BY m.dateTaken DESC
+        """,
+    )
+    abstract fun observeVideos(): Flow<List<MediaRow>>
+
+    @Query(
+        """
         SELECT m.*, 1 AS isFavorite
         FROM media AS m
         INNER JOIN favorites AS f ON f.mediaId = m.id
@@ -44,6 +66,26 @@ abstract class MediaDao {
     )
     abstract fun observeAlbums(): Flow<List<AlbumRow>>
 
+    @Query(
+        """
+        SELECT COUNT(*) AS itemCount,
+               (SELECT v.uri FROM media AS v INNER JOIN favorites AS w ON w.mediaId = v.id ORDER BY w.addedAt DESC LIMIT 1) AS coverUri
+        FROM media AS m
+        INNER JOIN favorites AS f ON f.mediaId = m.id
+        """,
+    )
+    abstract fun observeFavoritesSummary(): Flow<SummaryRow>
+
+    @Query(
+        """
+        SELECT COUNT(*) AS itemCount,
+               (SELECT v.uri FROM media AS v WHERE v.isVideo = 1 ORDER BY v.dateTaken DESC LIMIT 1) AS coverUri
+        FROM media AS m
+        WHERE m.isVideo = 1
+        """,
+    )
+    abstract fun observeVideosSummary(): Flow<SummaryRow>
+
     @Upsert
     abstract suspend fun upsertAll(items: List<MediaEntity>)
 
@@ -57,10 +99,22 @@ abstract class MediaDao {
     abstract suspend fun clearMedia()
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    abstract suspend fun addFavorite(favorite: FavoriteEntity)
+    abstract suspend fun addFavorites(favorites: List<FavoriteEntity>)
 
-    @Query("DELETE FROM favorites WHERE mediaId = :mediaId")
-    abstract suspend fun removeFavorite(mediaId: Long)
+    @Query("DELETE FROM favorites WHERE mediaId IN (:ids)")
+    abstract suspend fun removeFavorites(ids: List<Long>)
+
+    /** Adds or removes many favorites in one transaction, chunked for SQLite's variable limit. */
+    @Transaction
+    open suspend fun setFavorites(ids: List<Long>, favorite: Boolean, now: Long) {
+        ids.chunked(CHUNK).forEach { chunk ->
+            if (favorite) {
+                addFavorites(chunk.map { FavoriteEntity(mediaId = it, addedAt = now) })
+            } else {
+                removeFavorites(chunk)
+            }
+        }
+    }
 
     /**
      * Makes the index equal to [items] in one transaction: upserts everything seen and removes

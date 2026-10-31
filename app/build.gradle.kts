@@ -17,7 +17,7 @@ android {
         minSdk = 35
         targetSdk = 36
         versionCode = 1
-        versionName = "0.2.0"
+        versionName = "0.3.0"
     }
 
     buildTypes {
@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.datastore.preferences)
 
     implementation(libs.coil.compose)
     implementation(libs.coil.video)

@@ -19,6 +19,7 @@ import com.aurax.imagery.ui.components.GlassNavItem
 import com.aurax.imagery.ui.components.LocalFloatingBarInset
 import com.aurax.imagery.ui.navigation.AuraDestination
 import com.aurax.imagery.ui.navigation.AuraNavHost
+import com.aurax.imagery.ui.navigation.AuraRoutes
 
 /** Root composable: background, navigation graph, and the floating glass bar on top. */
 @Composable
@@ -26,6 +27,7 @@ fun AuraXRoot() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+    val inAlbumDetail = AuraRoutes.isAlbumDetail(currentRoute)
     val navItems = remember {
         AuraDestination.entries.map { GlassNavItem(it.route, it.label, it.icon) }
     }
@@ -37,13 +39,19 @@ fun AuraXRoot() {
         }
         GlassBottomBar(
             items = navItems,
-            selectedRoute = currentRoute,
+            // An album opened from the Albums tab keeps that tab highlighted.
+            selectedRoute = if (inAlbumDetail) AuraDestination.Albums.route else currentRoute,
             onSelect = { item ->
-                navController.navigate(item.route) {
-                    // Standard bottom-nav behaviour: one copy of each tab, state preserved.
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
+                if (inAlbumDetail && item.route == AuraDestination.Albums.route) {
+                    // Tapping the active tab from inside an album returns to the album list.
+                    navController.popBackStack(AuraDestination.Albums.route, inclusive = false)
+                } else {
+                    navController.navigate(item.route) {
+                        // Standard bottom-nav behaviour: one copy of each tab, state preserved.
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             },
             modifier = Modifier

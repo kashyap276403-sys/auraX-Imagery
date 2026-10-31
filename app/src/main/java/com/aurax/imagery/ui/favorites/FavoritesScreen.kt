@@ -3,17 +3,27 @@ package com.aurax.imagery.ui.favorites
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.runtime.Composable
-import com.aurax.imagery.ui.components.EmptyState
-import com.aurax.imagery.ui.components.ScreenScaffold
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.aurax.imagery.AuraXApp
+import com.aurax.imagery.domain.model.AlbumRef
+import com.aurax.imagery.ui.gallery.MediaListScreen
+import com.aurax.imagery.ui.gallery.MediaListViewModel
+import com.aurax.imagery.ui.gallery.MediaSource
 
-/** Phase 1 scaffold. Favorites are stored in Room and listed here from Phase 3. */
+/** Favorites tab. Same timeline and selection behaviour as Photos, limited to favorited items. */
 @Composable
 fun FavoritesScreen() {
-    ScreenScaffold(title = "Favorites") {
-        EmptyState(
-            icon = Icons.Rounded.Favorite,
-            title = "No favorites yet",
-            message = "Photos and videos you mark as favorite will be collected here.",
-        )
-    }
+    val container = (LocalContext.current.applicationContext as AuraXApp).container
+    val viewModel: MediaListViewModel = viewModel(
+        key = "favorites",
+        factory = MediaListViewModel.factory(container, MediaSource.Album(AlbumRef.Favorites)),
+    )
+    MediaListScreen(
+        title = "Favorites",
+        viewModel = viewModel,
+        emptyIcon = Icons.Rounded.Favorite,
+        emptyTitle = "No favorites yet",
+        emptyMessage = "Long-press photos or videos, then tap the heart to collect them here.",
+    )
 }

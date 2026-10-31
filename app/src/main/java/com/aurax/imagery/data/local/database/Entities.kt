@@ -51,3 +51,9 @@ data class AlbumRow(
     val itemCount: Int,
     val coverUri: String?,
 )
+
+/** Count and cover of a smart album (Favorites, Videos). */
+data class SummaryRow(
+    val itemCount: Int,
+    val coverUri: String?,
+)
