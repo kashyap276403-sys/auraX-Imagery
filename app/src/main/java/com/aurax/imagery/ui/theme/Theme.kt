@@ -19,7 +19,7 @@ private val AuraColorScheme = darkColorScheme(
     outline = AuraOutline,
 )
 
-/** auraX is dark-only by design: the glass look depends on a true-black base. */
+/** AuraX is dark-only by design: the glass look depends on a true-black base. */
 @Composable
 fun AuraXTheme(
     glassStyle: GlassStyle = GlassStyle.Natural,

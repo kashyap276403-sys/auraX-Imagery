@@ -35,7 +35,7 @@ fun MediaAccessPrompt(state: MediaAccessState, modifier: Modifier = Modifier) {
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "auraX needs permission to show the photos and videos on this device. " +
+                text = "AuraX needs permission to show the photos and videos on this device. " +
                     "Everything stays on your phone. You can allow your whole library or choose " +
                     "only specific photos in the system dialog.",
                 style = MaterialTheme.typography.bodyMedium,

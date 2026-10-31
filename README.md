@@ -1,4 +1,4 @@
-# auraX Imagery
+# AuraX Imagery
 
 **EVERY MEMORY, BEAUTIFULLY.**
 
