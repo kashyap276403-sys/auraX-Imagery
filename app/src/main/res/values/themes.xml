@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window-level theme: pure AMOLED black so there is no white flash on launch. -->
+    <style name="Theme.AuraX" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/aura_black</item>
+        <item name="android:windowSplashScreenBackground">@color/aura_black</item>
+        <item name="android:colorBackground">@color/aura_black</item>
+    </style>
+</resources>
