@@ -8,17 +8,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is moving to a newer image; 24.04 ships the Android SDK preinstalled.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
 
-      # Installs the Android SDK and accepts licences so AGP can fetch platform 36.
-      - uses: android-actions/setup-android@v3
+      # The runner image already has the Android SDK; accept licences so AGP can fetch platform 36.
+      - name: Accept Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
 
       - uses: gradle/actions/setup-gradle@v4
 
