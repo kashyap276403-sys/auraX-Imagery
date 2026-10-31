@@ -11,13 +11,13 @@ A premium, offline-first Android gallery with a liquid-glass interface on a true
 
 ## Status
 
-Phase 1 of 7 (project setup, theme, navigation) is written. **It has not been built or run on a device yet.**
-The build environment used for development has no Android SDK, so the first real build happens in CI.
+Phases 1-2 of 7 are written. Phase 1 compiles in CI; Phase 2 is pending its first CI build. **Nothing has been run on a device yet.**
+The environment used for development has no Android SDK, so builds and unit tests run in GitHub Actions.
 
 | Phase | Scope | State |
 |---|---|---|
-| 1 | Project setup, architecture, theme, floating glass navigation | Code written, awaiting first CI build |
-| 2 | MediaStore integration, permissions, background indexing | Not started |
+| 1 | Project setup, architecture, theme, floating glass navigation | Builds in CI |
+| 2 | MediaStore integration, permissions, background indexing | Code written, awaiting CI |
 | 3 | Home timeline, albums, favorites | Not started |
 | 4 | Full-screen viewer, video player | Not started |
 | 5 | Photo editor, search | Not started |
@@ -40,5 +40,6 @@ GitHub Actions (`.github/workflows/build.yml`) builds a debug APK on every push 
 app/src/main/java/com/aurax/imagery/
   domain/   model, repository interfaces, use cases (plain Kotlin, no Android types)
   ui/       theme, components (glass design system), navigation, one package per screen
-  data/     added in Phase 2 (MediaStore source, Room database, repository implementations)
+  data/     Room index (local/database), MediaStore scanner and WorkManager indexing (media), repository impl
+  utils/    media permission helpers, formatters
 ```

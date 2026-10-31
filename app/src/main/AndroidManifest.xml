@@ -2,11 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!--
-        No media permissions yet. They are added in Phase 2 together with the
-        runtime request flow (READ_MEDIA_IMAGES / READ_MEDIA_VIDEO /
-        READ_MEDIA_VISUAL_USER_SELECTED), so the app never asks for access it
-        does not use.
+        Media access, requested at runtime only when the user opens the library.
+        On Android 14+ the system dialog also offers "Select photos and videos", which grants
+        READ_MEDIA_VISUAL_USER_SELECTED (partial access). The app handles all three states:
+        full, partial and denied. The app has no INTERNET permission by design.
     -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
     <application
         android:name=".AuraXApp"

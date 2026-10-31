@@ -22,5 +22,10 @@ class MainActivity : ComponentActivity() {
                 AuraXRoot()
             }
         }
+        // Refresh the index on a fresh launch (not on rotation). The worker itself checks the
+        // media permission, so this is safe before the user has granted anything.
+        if (savedInstanceState == null) {
+            (application as AuraXApp).container.indexer.enqueue()
+        }
     }
 }

@@ -3,10 +3,17 @@ package com.aurax.imagery
 import android.app.Application
 
 /**
- * Application entry point.
- *
- * Kept intentionally thin in Phase 1. Later phases wire the dependency graph here
- * (Room database, MediaStore repository, DataStore, WorkManager scheduling) through a
- * small hand-written container, so the data layer stays swappable without a DI framework.
+ * Application entry point. Owns the [AppContainer] and starts listening for MediaStore changes.
+ * The refresh itself is queued from the UI (see MainActivity), not here, so a worker-started
+ * process does not schedule yet another worker.
  */
-class AuraXApp : Application()
+class AuraXApp : Application() {
+    lateinit var container: AppContainer
+        private set
+
+    override fun onCreate() {
+        super.onCreate()
+        container = AppContainer(this)
+        container.indexer.startObservingChanges()
+    }
+}
