@@ -11,13 +11,13 @@ A premium, offline-first Android gallery with a liquid-glass interface on a true
 
 ## Status
 
-Phases 1-2 of 7 are written. Phase 1 compiles in CI; Phase 2 is pending its first CI build. **Nothing has been run on a device yet.**
+Phases 1-2 of 7 are written. Phase 1 compiles in CI; Phase 2 also compiles and passes its unit tests in CI. **Nothing has been run on a device yet.**
 The environment used for development has no Android SDK, so builds and unit tests run in GitHub Actions.
 
 | Phase | Scope | State |
 |---|---|---|
 | 1 | Project setup, architecture, theme, floating glass navigation | Builds in CI |
-| 2 | MediaStore integration, permissions, background indexing | Code written, awaiting CI |
+| 2 | MediaStore integration, permissions, background indexing | Builds in CI; untested on a device |
 | 3 | Home timeline, albums, favorites | Not started |
 | 4 | Full-screen viewer, video player | Not started |
 | 5 | Photo editor, search | Not started |
