@@ -52,6 +52,13 @@ data class AlbumRow(
     val coverUri: String?,
 )
 
+/** Whole-library totals for the Settings storage section. */
+data class StatsRow(
+    val total: Int,
+    val videos: Int,
+    val bytes: Long,
+)
+
 /** Count and cover of a smart album (Favorites, Videos). */
 data class SummaryRow(
     val itemCount: Int,

@@ -86,6 +86,19 @@ abstract class MediaDao {
     )
     abstract fun observeVideosSummary(): Flow<SummaryRow>
 
+    @Query(
+        """
+        SELECT COUNT(*) AS total,
+               COALESCE(SUM(CASE WHEN isVideo = 1 THEN 1 ELSE 0 END), 0) AS videos,
+               COALESCE(SUM(sizeBytes), 0) AS bytes
+        FROM media
+        """,
+    )
+    abstract fun observeStats(): Flow<StatsRow>
+
+    @Query("DELETE FROM favorites")
+    abstract suspend fun clearFavorites()
+
     @Upsert
     abstract suspend fun upsertAll(items: List<MediaEntity>)
 

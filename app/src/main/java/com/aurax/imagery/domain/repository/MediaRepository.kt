@@ -2,6 +2,7 @@ package com.aurax.imagery.domain.repository
 
 import com.aurax.imagery.domain.model.Album
 import com.aurax.imagery.domain.model.AlbumRef
+import com.aurax.imagery.domain.model.LibraryStats
 import com.aurax.imagery.domain.model.MediaItem
 import kotlinx.coroutines.flow.Flow
 
@@ -16,6 +17,11 @@ interface MediaRepository {
     fun observeAlbums(): Flow<List<Album>>
 
     fun observeAlbumMedia(ref: AlbumRef): Flow<List<MediaItem>>
+
+    fun observeStats(): Flow<LibraryStats>
+
+    /** Removes every favorite flag. The photos themselves are not touched. */
+    suspend fun clearFavorites()
 
     suspend fun setFavorites(mediaIds: List<Long>, favorite: Boolean)
 }

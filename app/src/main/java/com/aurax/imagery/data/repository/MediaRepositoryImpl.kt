@@ -5,6 +5,7 @@ import com.aurax.imagery.data.local.database.MediaDao
 import com.aurax.imagery.data.local.database.MediaRow
 import com.aurax.imagery.domain.model.Album
 import com.aurax.imagery.domain.model.AlbumRef
+import com.aurax.imagery.domain.model.LibraryStats
 import com.aurax.imagery.domain.model.MediaItem
 import com.aurax.imagery.domain.model.MediaType
 import com.aurax.imagery.domain.repository.MediaRepository
@@ -42,6 +43,12 @@ class MediaRepositoryImpl(private val dao: MediaDao) : MediaRepository {
                 addAll(buckets.map(AlbumRow::toDomain).sortedBy { folderPriority(it.name) })
             }
         }.flowOn(Dispatchers.Default)
+
+    override fun observeStats(): Flow<LibraryStats> = dao.observeStats().map {
+        LibraryStats(total = it.total, videos = it.videos, photos = it.total - it.videos, bytes = it.bytes)
+    }
+
+    override suspend fun clearFavorites() = dao.clearFavorites()
 
     override suspend fun setFavorites(mediaIds: List<Long>, favorite: Boolean) {
         if (mediaIds.isEmpty()) return
