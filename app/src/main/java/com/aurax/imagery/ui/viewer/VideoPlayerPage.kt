@@ -404,7 +404,37 @@ fun VideoPlayerPage(
         val frameHDp = with(density) { frame.height.toDp() }
 
 
-        // Gesture layer under the picture and the controls: taps, double-taps, swipes, pinch.
+        // The picture frame. Pan is clamped so zooming never opens a gap; drag moves it while zoomed.
+        Box(
+            modifier = Modifier
+                .size(frameWDp, frameHDp)
+                .graphicsLayer {
+                    scaleX = zoom
+                    scaleY = zoom
+                    translationX = panX
+                    translationY = panY
+                }
+        ) {
+            // Poster frame until the first video frame is on screen.
+            if (!firstFrameShown) {
+                AsyncImage(
+                    model = item.uri,
+                    contentDescription = item.displayName,
+                    contentScale = ContentScale.FillBounds,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            player?.let { active ->
+                key(active) {
+                    AndroidView(
+                        factory = { ctx -> TextureView(ctx).also { active.setVideoTextureView(it) } },
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+
+        // Gesture layer above the picture (a TextureView would swallow touches meant for a layer below it) and below the controls: taps, double-taps, swipes, pinch.
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -495,36 +525,6 @@ fun VideoPlayerPage(
                 }
             }
         )
-
-        // The picture frame. Pan is clamped so zooming never opens a gap; drag moves it while zoomed.
-        Box(
-            modifier = Modifier
-                .size(frameWDp, frameHDp)
-                .graphicsLayer {
-                    scaleX = zoom
-                    scaleY = zoom
-                    translationX = panX
-                    translationY = panY
-                }
-        ) {
-            // Poster frame until the first video frame is on screen.
-            if (!firstFrameShown) {
-                AsyncImage(
-                    model = item.uri,
-                    contentDescription = item.displayName,
-                    contentScale = ContentScale.FillBounds,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-            player?.let { active ->
-                key(active) {
-                    AndroidView(
-                        factory = { ctx -> TextureView(ctx).also { active.setVideoTextureView(it) } },
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                }
-            }
-        }
 
         if (failed) {
             Text(
