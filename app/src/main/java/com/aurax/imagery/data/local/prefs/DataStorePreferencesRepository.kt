@@ -51,6 +51,22 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[GROUPING] = grouping.name }
     }
 
+    private val safeData: Flow<Preferences> = store.data.catch { e ->
+        if (e is IOException) emit(emptyPreferences()) else throw e
+    }
+
+    override val glassStyle: Flow<String?> = safeData.map { it[GLASS_STYLE] }
+
+    override suspend fun setGlassStyle(encoded: String) {
+        store.edit { it[GLASS_STYLE] = encoded }
+    }
+
+    override val glassPresets: Flow<String?> = safeData.map { it[GLASS_PRESETS] }
+
+    override suspend fun setGlassPresets(encoded: String) {
+        store.edit { it[GLASS_PRESETS] = encoded }
+    }
+
     private inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
         this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
 
@@ -58,5 +74,7 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val SORT_FIELD = stringPreferencesKey("sort_field")
         val SORT_ASCENDING = booleanPreferencesKey("sort_ascending")
         val GROUPING = stringPreferencesKey("grouping")
+        val GLASS_STYLE = stringPreferencesKey("glass_style")
+        val GLASS_PRESETS = stringPreferencesKey("glass_presets")
     }
 }

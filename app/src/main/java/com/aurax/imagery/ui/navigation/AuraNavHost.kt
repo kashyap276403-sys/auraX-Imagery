@@ -16,6 +16,7 @@ import com.aurax.imagery.ui.albums.AlbumsScreen
 import com.aurax.imagery.ui.editor.EditorScreen
 import com.aurax.imagery.ui.favorites.FavoritesScreen
 import com.aurax.imagery.ui.gallery.MediaSource
+import com.aurax.imagery.ui.glass.studio.GlassStudioScreen
 import com.aurax.imagery.ui.home.HomeScreen
 import com.aurax.imagery.ui.search.SearchScreen
 import com.aurax.imagery.ui.settings.SettingsScreen
@@ -49,7 +50,10 @@ fun AuraNavHost(
         }
         composable(AuraDestination.Search.route) { SearchScreen(onOpenViewer = openViewer) }
         composable(AuraDestination.Favorites.route) { FavoritesScreen(onOpenViewer = openViewer) }
-        composable(AuraDestination.Settings.route) { SettingsScreen() }
+        composable(AuraDestination.Settings.route) {
+            SettingsScreen(onOpenGlassStudio = { navController.navigate(AuraRoutes.GLASS_STUDIO) })
+        }
+        composable(AuraRoutes.GLASS_STUDIO) { GlassStudioScreen(onBack = { navController.popBackStack() }) }
 
         composable(
             route = AuraRoutes.ALBUM_PATTERN,

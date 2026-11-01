@@ -18,9 +18,8 @@ enum class GlassMode(val label: String) {
  * All glass components read this through [LocalGlassStyle], so Glass Studio (Phase 6) only has
  * to provide a different [GlassStyle] at the root for the whole app to change.
  *
- * Fields consumed today: [opacity], [tint], [reflection], [borderWidth], [cornerRadius],
- * [shadow], [glow], [animationSpeed], [haptics], [performanceMode].
- * Fields reserved for the Phase 6 backdrop renderer: [blur], [distortion], [motionEffects].
+ * [blur], [distortion] (refraction), [edgeBrightness] and [motionEffects] drive the backdrop
+ * engine in `ui.glass` (Haze blur + AGSL shader); the rest are also used by the base GlassSurface.
  */
 @Immutable
 data class GlassStyle(
@@ -38,8 +37,10 @@ data class GlassStyle(
     val shadow: Float = 0.5f,
     /** Accent glow strength, 0..1. */
     val glow: Float = 0.3f,
-    /** Liquid edge distortion, 0..1. */
+    /** Liquid refraction / edge distortion, 0..1. */
     val distortion: Float = 0.3f,
+    /** Brightness of the light caught along the glass edge, 0..1. */
+    val edgeBrightness: Float = 0.6f,
     /** Multiplier for spring/transition speed. 1 = normal. */
     val animationSpeed: Float = 1f,
     val haptics: Boolean = true,
@@ -60,6 +61,7 @@ data class GlassStyle(
             shadow = 0.4f,
             glow = 0.55f,
             distortion = 0.65f,
+            edgeBrightness = 0.9f,
         )
 
         val FullTransparent = GlassStyle(
@@ -72,8 +74,16 @@ data class GlassStyle(
             shadow = 0.2f,
             glow = 0.15f,
             distortion = 0.1f,
+            edgeBrightness = 0.45f,
         )
     }
+}
+
+/** The baseline style of each mode; selecting a mode in Glass Studio starts from this. */
+fun GlassMode.baseStyle(): GlassStyle = when (this) {
+    GlassMode.Natural -> GlassStyle.Natural
+    GlassMode.PureLiquid -> GlassStyle.PureLiquid
+    GlassMode.FullTransparent -> GlassStyle.FullTransparent
 }
 
 val LocalGlassStyle = staticCompositionLocalOf { GlassStyle.Natural }

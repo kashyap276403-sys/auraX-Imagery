@@ -15,6 +15,7 @@ import com.aurax.imagery.domain.usecase.ObserveAlbumsUseCase
 import com.aurax.imagery.domain.usecase.ObserveMediaUseCase
 import com.aurax.imagery.domain.usecase.SearchMediaUseCase
 import com.aurax.imagery.domain.usecase.SetFavoritesUseCase
+import com.aurax.imagery.ui.glass.GlassSettings
 
 /**
  * Hand-written dependency container (no DI framework). Everything is lazy so cold start does
@@ -34,6 +35,9 @@ class AppContainer(context: Context) {
     val indexer: MediaIndexer by lazy { MediaIndexer(appContext) }
 
     val searchMedia: SearchMediaUseCase by lazy { SearchMediaUseCase() }
+    /** App-wide glass look (live in memory, persisted to DataStore with a short debounce). */
+    val glassSettings: GlassSettings by lazy { GlassSettings(preferences) }
+
     val observeMedia: ObserveMediaUseCase by lazy { ObserveMediaUseCase(mediaRepository) }
     val observeAlbums: ObserveAlbumsUseCase by lazy { ObserveAlbumsUseCase(mediaRepository) }
     val observeAlbumMedia: ObserveAlbumMediaUseCase by lazy { ObserveAlbumMediaUseCase(mediaRepository) }

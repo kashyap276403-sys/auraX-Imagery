@@ -24,7 +24,7 @@ import com.aurax.imagery.ui.components.ScreenScaffold
  * privacy sections are added in Phases 6-7 as they become functional.
  */
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onOpenGlassStudio: () -> Unit) {
     val context = LocalContext.current
     val versionName = remember {
         runCatching {
@@ -39,6 +39,16 @@ fun SettingsScreen() {
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .padding(bottom = LocalFloatingBarInset.current),
         ) {
+            GlassCard(onClick = onOpenGlassStudio) {
+                Text(text = "Glass Studio", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Blur, refraction, tint, reflection, motion and presets. Tap to open.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             GlassCard {
                 Text(
                     text = "About ${stringResource(R.string.app_name)}",

@@ -6,6 +6,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.aurax.imagery.ui.AuraXRoot
 import com.aurax.imagery.ui.theme.AuraXTheme
 
@@ -17,8 +19,10 @@ class MainActivity : ComponentActivity() {
             statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
+        val glassSettings = (application as AuraXApp).container.glassSettings
         setContent {
-            AuraXTheme {
+            val glassStyle by glassSettings.style.collectAsStateWithLifecycle()
+            AuraXTheme(glassStyle = glassStyle) {
                 AuraXRoot()
             }
         }
