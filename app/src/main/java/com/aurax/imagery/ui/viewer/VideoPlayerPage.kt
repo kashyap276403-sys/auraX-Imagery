@@ -1,6 +1,36 @@
 package com.aurax.imagery.ui.viewer
 
 import android.content.Context
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.rounded.BookmarkBorder
+import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Subtitles
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.common.text.CueGroup
+import coil3.request.ImageRequest
+import coil3.video.videoFrameMillis
+import com.aurax.imagery.domain.player.AbRange
+import com.aurax.imagery.domain.player.RepeatMode
+import com.aurax.imagery.domain.player.SubtitlePosition
+import com.aurax.imagery.domain.player.SubtitleSize
+import com.aurax.imagery.domain.player.channelLabel
+import com.aurax.imagery.domain.player.trackTitle
 import android.media.AudioManager
 import android.provider.Settings
 import android.view.TextureView
@@ -124,6 +154,19 @@ import androidx.media3.common.MediaItem as ExoMediaItem
 private const val SEEK_STEP_MS = 10_000L
 private val ScrimColor = Color.Black.copy(alpha = 0.38f)
 
+/** What the viewer-level queue offers the page: skip buttons, end-of-video handling, repeat mode. */
+data class QueueNav(
+    val canPrev: Boolean,
+    val canNext: Boolean,
+    val onPrev: () -> Unit,
+    val onNext: () -> Unit,
+    val onEnded: () -> Unit,
+    val onShowQueue: () -> Unit,
+    val repeatMode: RepeatMode,
+    /** True once if the viewer moved here because the previous video ended or Next was pressed. */
+    val consumeAutoPlay: () -> Boolean,
+)
+
 /**
  * One video page in the viewer pager: the video frame (screen mode, aspect preset, zoom) plus
  * its own chrome - top bar, centre transport, thin seek row.
@@ -151,6 +194,7 @@ fun VideoPlayerPage(
     onZoomChanged: (Boolean) -> Unit,
     orientationLock: OrientationLock,
     onCycleOrientation: () -> Unit,
+    queue: QueueNav,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -176,6 +220,41 @@ fun VideoPlayerPage(
     var showRatioSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showSpeedSheet by remember { mutableStateOf(false) }
+    var showTracksSheet by remember { mutableStateOf(false) }
+    var showAbSheet by remember { mutableStateOf(false) }
+    var showBookmarks by remember { mutableStateOf(false) }
+    var tracks by remember(item.id) { mutableStateOf(Tracks.EMPTY) }
+    var cueText by remember(item.id) { mutableStateOf("") }
+    var subtitleSize by remember { mutableStateOf(SubtitleSize.Medium) }
+    var subtitlePosition by remember { mutableStateOf(SubtitlePosition.Low) }
+    var abRange by remember(item.id) { mutableStateOf(AbRange()) }
+    val latestQueue by rememberUpdatedState(queue)
+    val srtPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val active = player
+        if (uri != null && active != null) {
+            val name = displayNameOf(context, uri)
+            if (!name.endsWith(".srt", ignoreCase = true)) {
+                Toast.makeText(context, "Choose an .srt subtitle file", Toast.LENGTH_SHORT).show()
+            } else {
+                val position = active.currentPosition
+                val resume = active.playWhenReady
+                val subtitle = ExoMediaItem.SubtitleConfiguration.Builder(uri)
+                    .setMimeType(MimeTypes.APPLICATION_SUBRIP)
+                    .setLabel("External · $name")
+                    .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                    .build()
+                active.trackSelectionParameters = active.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                    .build()
+                active.setMediaItem(
+                    ExoMediaItem.Builder().setUri(item.uri).setSubtitleConfigurations(listOf(subtitle)).build(),
+                    position,
+                )
+                active.prepare()
+                active.playWhenReady = resume
+            }
+        }
+    }
     var speed by remember(item.id) { mutableFloatStateOf(1f) }
     var indicator by remember { mutableStateOf<LevelIndicator?>(null) }
     var indicatorTick by remember { mutableIntStateOf(0) }
@@ -196,6 +275,10 @@ fun VideoPlayerPage(
         }
     }
     LaunchedEffect(player, speed) { player?.setPlaybackParameters(PlaybackParameters(speed)) }
+    LaunchedEffect(player, queue.repeatMode) {
+        player?.repeatMode = if (queue.repeatMode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    }
+    LaunchedEffect(ended, isCurrentPage) { if (ended && isCurrentPage) latestQueue.onEnded() }
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         container.preferences.videoScreenMode.first()
@@ -211,8 +294,8 @@ fun VideoPlayerPage(
         scope.launch { container.preferences.setVideoDisplay(mode.name, newPreset.name) }
     }
     LaunchedEffect(zoom) { onZoomChanged(zoom > 1.001f) }
-    LaunchedEffect(showRatioSheet, showSpeedSheet, showMenu, dragging) {
-        onBusyChanged(showRatioSheet || showSpeedSheet || showMenu || dragging)
+    LaunchedEffect(showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showMenu, dragging) {
+        onBusyChanged(showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showMenu || dragging)
     }
     LaunchedEffect(isPlaying, isCurrentPage) { if (isCurrentPage) onPlayingChanged(isPlaying) }
 
@@ -225,6 +308,7 @@ fun VideoPlayerPage(
             .apply {
                 setAudioAttributes(AudioAttributes.DEFAULT, true)
                 setMediaItem(ExoMediaItem.fromUri(item.uri))
+                playWhenReady = latestQueue.consumeAutoPlay()
                 prepare()
             }
         player = created
@@ -262,6 +346,14 @@ fun VideoPlayerPage(
                 }
             }
 
+            override fun onTracksChanged(newTracks: Tracks) {
+                tracks = newTracks
+            }
+
+            override fun onCues(cueGroup: CueGroup) {
+                cueText = cueGroup.cues.mapNotNull { it.text?.toString() }.joinToString("\n")
+            }
+
             override fun onRenderedFirstFrame() {
                 firstFrameShown = true
             }
@@ -279,7 +371,11 @@ fun VideoPlayerPage(
         val active = player ?: return@LaunchedEffect
         while (isActive) {
             positionMs = active.currentPosition.coerceAtLeast(0L)
-            delay(if (isPlaying) 250L else 600L)
+            abRange.loopTarget(positionMs)?.let { target ->
+                active.seekTo(target)
+                positionMs = target
+            }
+            delay(if (abRange.isActive && isPlaying) 80L else if (isPlaying) 250L else 600L)
         }
     }
 
@@ -441,6 +537,26 @@ fun VideoPlayerPage(
         val active = player
         val ready = active != null && !failed
 
+        // Subtitles, drawn by the app from the player's cue text.
+        if (cueText.isNotBlank()) {
+            val lifted by animateDpAsState(
+                targetValue = if (controlsVisible) maxOf(subtitlePosition.bottomDp, if (actionBarVisible) 160 else 72).dp else subtitlePosition.bottomDp.dp,
+                label = "subtitleLift",
+            )
+            Text(
+                text = cueText,
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = (18f * subtitleSize.scale).sp, textAlign = TextAlign.Center),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(start = 32.dp, end = 32.dp, bottom = lifted)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color.Black.copy(alpha = 0.55f))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+            )
+        }
+
         // Brightness / volume level and double-tap seek feedback.
         indicator?.let { LevelPill(it, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp)) }
         seekFlash?.let { zone ->
@@ -508,6 +624,38 @@ fun VideoPlayerPage(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text("Subtitles and audio") },
+                            leadingIcon = { Icon(Icons.Rounded.Subtitles, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showTracksSheet = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (abRange.isActive) "A-B repeat · on" else "A-B repeat") },
+                            leadingIcon = { Icon(Icons.Rounded.Repeat, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showAbSheet = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Bookmarks") },
+                            leadingIcon = { Icon(Icons.Rounded.BookmarkBorder, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showBookmarks = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (queue.repeatMode == RepeatMode.Off) "Queue and repeat" else "Queue · ${queue.repeatMode.label}") },
+                            leadingIcon = { Icon(Icons.Rounded.QueueMusic, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                queue.onShowQueue()
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Rotation · ${orientationLock.label}") },
                             leadingIcon = { Icon(Icons.Rounded.ScreenRotation, contentDescription = null) },
                             onClick = {
@@ -536,9 +684,14 @@ fun VideoPlayerPage(
                 exit = fadeOut(),
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(20.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    if (queue.canPrev || queue.canNext) {
+                        TransportButton(Icons.Rounded.SkipPrevious, "Previous video", 40.dp, enabled = queue.canPrev) {
+                            queue.onPrev()
+                        }
+                    }
                     TransportButton(Icons.Rounded.Replay10, "Back 10 seconds", 48.dp) {
                         active.seekTo((active.currentPosition - SEEK_STEP_MS).coerceAtLeast(0L))
                         ended = false
@@ -572,6 +725,11 @@ fun VideoPlayerPage(
                         active.seekTo((active.currentPosition + SEEK_STEP_MS).coerceAtMost(limit))
                         onInteraction()
                     }
+                    if (queue.canPrev || queue.canNext) {
+                        TransportButton(Icons.Rounded.SkipNext, "Next video", 40.dp, enabled = queue.canNext) {
+                            queue.onNext()
+                        }
+                    }
                 }
             }
         }
@@ -589,6 +747,8 @@ fun VideoPlayerPage(
                     durationMs = durationMs,
                     isLandscape = isLandscape,
                     fillActive = screenMode == ScreenMode.Fill,
+                    abRange = abRange,
+                    previewUri = item.uri,
                     bottomInset = if (actionBarVisible) 104.dp else 16.dp,
                     onSeek = { target ->
                         active.seekTo(target)
@@ -606,6 +766,72 @@ fun VideoPlayerPage(
                 )
             }
         }
+    }
+
+    if (showTracksSheet) {
+        val subtitleOptions = remember(tracks) { trackOptions(tracks, C.TRACK_TYPE_TEXT, "Subtitle") }
+        val audioOptions = remember(tracks) { trackOptions(tracks, C.TRACK_TYPE_AUDIO, "Audio") }
+        TracksSheet(
+            subtitles = subtitleOptions,
+            audio = audioOptions,
+            size = subtitleSize,
+            position = subtitlePosition,
+            onSelectSubtitle = { option ->
+                val active = player
+                if (active != null) {
+                    val params = active.trackSelectionParameters.buildUpon()
+                    if (option == null) {
+                        params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                        cueText = ""
+                    } else {
+                        params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                            .setOverrideForType(TrackSelectionOverride(tracks.groups[option.groupIndex].mediaTrackGroup, option.trackIndex))
+                    }
+                    active.trackSelectionParameters = params.build()
+                }
+            },
+            onPickSrt = { srtPicker.launch(arrayOf("*/*")) },
+            onSize = { subtitleSize = it },
+            onPosition = { subtitlePosition = it },
+            onSelectAudio = { option ->
+                player?.let { active ->
+                    active.trackSelectionParameters = active.trackSelectionParameters.buildUpon()
+                        .setOverrideForType(TrackSelectionOverride(tracks.groups[option.groupIndex].mediaTrackGroup, option.trackIndex))
+                        .build()
+                }
+            },
+            onDismiss = { showTracksSheet = false },
+        )
+    }
+
+    if (showAbSheet) {
+        AbRepeatSheet(
+            range = abRange,
+            positionMs = positionMs,
+            onSetA = { abRange = abRange.withStart(positionMs) },
+            onSetB = { abRange = abRange.withEnd(positionMs) },
+            onClear = { abRange = AbRange() },
+            onDismiss = { showAbSheet = false },
+        )
+    }
+
+    if (showBookmarks) {
+        val bookmarks by remember(item.id) { container.bookmarks.observe(item.id) }
+            .collectAsStateWithLifecycle(initialValue = emptyList())
+        BookmarksSheet(
+            bookmarks = bookmarks,
+            positionMs = positionMs,
+            onAdd = { name -> scope.launch { container.bookmarks.add(item.id, positionMs, name) } },
+            onJump = { bookmark ->
+                player?.seekTo(bookmark.positionMs)
+                positionMs = bookmark.positionMs
+                ended = false
+                showBookmarks = false
+                onInteraction()
+            },
+            onDelete = { bookmark -> scope.launch { container.bookmarks.delete(bookmark.id) } },
+            onDismiss = { showBookmarks = false },
+        )
     }
 
     if (showSpeedSheet) {
@@ -637,6 +863,39 @@ fun VideoPlayerPage(
         )
     }
 }
+
+/** Audio or subtitle tracks of [type] from the player's current track groups. */
+private fun trackOptions(tracks: Tracks, type: Int, kind: String): List<TrackOption> {
+    val out = mutableListOf<TrackOption>()
+    tracks.groups.forEachIndexed { groupIndex, group ->
+        if (group.type != type) return@forEachIndexed
+        for (trackIndex in 0 until group.length) {
+            val format = group.getTrackFormat(trackIndex)
+            val detail = if (type == C.TRACK_TYPE_AUDIO) {
+                listOfNotNull(channelLabel(format.channelCount), format.sampleMimeType?.substringAfter('/')?.uppercase())
+                    .joinToString(" · ").ifEmpty { null }
+            } else {
+                null
+            }
+            out += TrackOption(
+                groupIndex = groupIndex,
+                trackIndex = trackIndex,
+                title = trackTitle(format.label, format.language, out.size, kind),
+                detail = detail,
+                selected = group.isTrackSelected(trackIndex),
+                supported = group.isTrackSupported(trackIndex),
+            )
+        }
+    }
+    return out
+}
+
+private fun displayNameOf(context: Context, uri: Uri): String =
+    runCatching {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    }.getOrNull() ?: uri.lastPathSegment.orEmpty()
 
 private enum class LevelKind { Brightness, Volume }
 
@@ -686,13 +945,15 @@ private fun TransportButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     description: String,
     size: Dp,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     IconButton(
         onClick = onClick,
+        enabled = enabled,
         modifier = Modifier.size(size).clip(CircleShape).background(ScrimColor),
     ) {
-        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(size * 0.55f))
+        Icon(icon, contentDescription = description, tint = Color.White.copy(alpha = if (enabled) 1f else 0.35f), modifier = Modifier.size(size * 0.55f))
     }
 }
 
@@ -704,6 +965,8 @@ private fun SeekControls(
     durationMs: Long,
     isLandscape: Boolean,
     fillActive: Boolean,
+    abRange: AbRange,
+    previewUri: String,
     bottomInset: Dp,
     onSeek: (Long) -> Unit,
     onDragging: (Boolean) -> Unit,
@@ -720,12 +983,38 @@ private fun SeekControls(
     val timeStyle = MaterialTheme.typography.labelSmall
     val dim = Color.White.copy(alpha = 0.85f)
 
-    Row(
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
             .displayCutoutPadding()
-            .padding(start = 16.dp, end = 4.dp, bottom = bottomInset),
+            .padding(bottom = bottomInset),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+    if (dragging && durationMs > 0) {
+        // Frame preview while scrubbing: one request per second of video.
+        val context = LocalContext.current
+        val seconds = (dragFraction * durationMs / 1000f).toLong()
+        val request = remember(previewUri, seconds) {
+            ImageRequest.Builder(context)
+                .data(previewUri)
+                .videoFrameMillis(seconds * 1000L)
+                .size(320, 180)
+                .build()
+        }
+        AsyncImage(
+            model = request,
+            contentDescription = "Seek preview at ${formatDuration(shownPosition)}",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .padding(bottom = 6.dp)
+                .size(width = 128.dp, height = 72.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.Black),
+        )
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -751,11 +1040,21 @@ private fun SeekControls(
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.28f)),
                 ) {
+                    val a = abRange.startMs
+                    if (a != null && durationMs > 0) {
+                        val start = (a.toFloat() / durationMs).coerceIn(0f, 1f)
+                        val end = ((abRange.endMs ?: a).toFloat() / durationMs).coerceIn(start, 1f)
+                        Row(Modifier.fillMaxSize()) {
+                            Spacer(Modifier.weight(maxOf(start, 0.0001f)))
+                            Box(Modifier.weight(maxOf(end - start, 0.006f)).fillMaxHeight().background(Color(0xFFFFC857)))
+                            Spacer(Modifier.weight(maxOf(1f - end, 0.0001f)))
+                        }
+                    }
                     Box(
                         Modifier
                             .fillMaxWidth(shown)
                             .fillMaxHeight()
-                            .background(Color.White),
+                            .background(Color.White.copy(alpha = if (abRange.startMs != null) 0.6f else 1f)),
                     )
                 }
             },
@@ -773,6 +1072,7 @@ private fun SeekControls(
             description = if (isLandscape) "Exit full screen" else "Full screen",
             onClick = onToggleFullscreen,
         )
+    }
     }
 }
 

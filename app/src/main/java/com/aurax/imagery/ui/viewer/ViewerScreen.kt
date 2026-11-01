@@ -60,6 +60,9 @@ import com.aurax.imagery.AuraXApp
 import com.aurax.imagery.domain.model.MediaItem
 import com.aurax.imagery.domain.model.MediaType
 import com.aurax.imagery.domain.player.OrientationLock
+import com.aurax.imagery.domain.player.RepeatMode
+import com.aurax.imagery.domain.player.queueStep
+import com.aurax.imagery.utils.formatDuration
 import com.aurax.imagery.ui.components.GlassSurface
 import com.aurax.imagery.ui.components.GlassTopBar
 import com.aurax.imagery.ui.components.LoadingState
@@ -126,6 +129,12 @@ private fun ViewerContent(
     var orientationLock by remember { mutableStateOf(OrientationLock.Auto) }
     val landscape = orientationLock == OrientationLock.Landscape
     var videoPlaying by remember { mutableStateOf(false) }
+    // Queue = the videos of the list you opened, in order. Removals only last while the viewer is open.
+    var removedFromQueue by remember { mutableStateOf(setOf<Long>()) }
+    var repeatMode by remember { mutableStateOf(RepeatMode.Off) }
+    var autoPlayNext by remember { mutableStateOf(true) }
+    var pendingAutoPlay by remember { mutableStateOf(false) }
+    var showQueue by remember { mutableStateOf(false) }
     var videoBusy by remember { mutableStateOf(false) }
     var interactionTick by remember { mutableIntStateOf(0) }
 
@@ -150,6 +159,30 @@ private fun ViewerContent(
     val actionBarAllowed = current != null && (!isVideo || (!videoPlaying && !landscape && !orientationLandscape))
 
     LaunchedEffect(current?.id) { videoPlaying = false; videoBusy = false }
+
+    val queueIds = remember(items, removedFromQueue) {
+        items.filter { it.type == MediaType.Video && it.id !in removedFromQueue }.map { it.id }
+    }
+    val wrap = repeatMode == RepeatMode.Queue
+    val nextId = current?.let { queueStep(queueIds, it.id, forward = true, wrap = wrap) }
+    val prevId = current?.let { queueStep(queueIds, it.id, forward = false, wrap = wrap) }
+    fun playVideo(id: Long) {
+        val index = items.indexOfFirst { it.id == id }
+        if (index >= 0) {
+            pendingAutoPlay = true
+            scope.launch { pagerState.scrollToPage(index) }
+        }
+    }
+    val queueNav = QueueNav(
+        canPrev = prevId != null,
+        canNext = nextId != null,
+        onPrev = { prevId?.let(::playVideo) },
+        onNext = { nextId?.let(::playVideo) },
+        onEnded = { if (autoPlayNext || wrap) nextId?.let(::playVideo) },
+        onShowQueue = { showQueue = true },
+        repeatMode = repeatMode,
+        consumeAutoPlay = { pendingAutoPlay.also { pendingAutoPlay = false } },
+    )
     // While a video plays, the controls fade out after a few idle seconds; any interaction restarts it.
     LaunchedEffect(chromeVisible, videoPlaying, videoBusy, interactionTick, isVideo) {
         if (chromeVisible && isVideo && videoPlaying && !videoBusy) {
@@ -211,6 +244,7 @@ private fun ViewerContent(
                     },
                     orientationLock = orientationLock,
                     onCycleOrientation = { orientationLock = orientationLock.next() },
+                    queue = queueNav,
                     onClose = onClose,
                     onShowDetails = { showInfo = true },
                     onPlayingChanged = { videoPlaying = it },
@@ -302,6 +336,25 @@ AnimatedVisibility(
             }
 }
         }
+    }
+
+    if (showQueue) {
+        QueueSheet(
+            entries = items.filter { it.type == MediaType.Video && it.id in queueIds }.map {
+                QueueEntry(it.id, it.displayName, it.durationMillis?.let(::formatDuration), it.id == current?.id)
+            },
+            repeatMode = repeatMode,
+            autoPlayNext = autoPlayNext,
+            onRepeatMode = { repeatMode = it },
+            onAutoPlayNext = { autoPlayNext = it },
+            onPlay = { id ->
+                showQueue = false
+                if (id != current?.id) playVideo(id)
+            },
+            onRemove = { id -> removedFromQueue = removedFromQueue + id },
+            onRestore = { removedFromQueue = emptySet() },
+            onDismiss = { showQueue = false },
+        )
     }
 
     if (showInfo && current != null) {

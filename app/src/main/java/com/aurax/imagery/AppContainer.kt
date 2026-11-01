@@ -6,7 +6,9 @@ import com.aurax.imagery.data.local.prefs.DataStorePreferencesRepository
 import com.aurax.imagery.data.media.MediaIndexUpdater
 import com.aurax.imagery.data.media.MediaIndexer
 import com.aurax.imagery.data.media.MediaStoreScanner
+import com.aurax.imagery.data.repository.BookmarkRepositoryImpl
 import com.aurax.imagery.data.repository.MediaRepositoryImpl
+import com.aurax.imagery.domain.repository.BookmarkRepository
 import com.aurax.imagery.domain.repository.MediaRepository
 import com.aurax.imagery.domain.repository.PreferencesRepository
 import com.aurax.imagery.domain.usecase.BuildTimelineUseCase
@@ -27,6 +29,7 @@ class AppContainer(context: Context) {
     private val database: AuraDatabase by lazy { AuraDatabase.create(appContext) }
 
     val mediaRepository: MediaRepository by lazy { MediaRepositoryImpl(database.mediaDao()) }
+    val bookmarks: BookmarkRepository by lazy { BookmarkRepositoryImpl(database.bookmarkDao()) }
     val preferences: PreferencesRepository by lazy { DataStorePreferencesRepository(appContext) }
 
     val indexUpdater: MediaIndexUpdater by lazy {
