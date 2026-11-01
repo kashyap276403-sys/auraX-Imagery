@@ -31,6 +31,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import com.aurax.imagery.ui.glass.LocalHazeState
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -129,6 +133,8 @@ private fun ViewerContent(
     }
 
     val current = items.getOrNull(pagerState.currentPage)
+    // The photo/video pager is the backdrop; only the chrome drawn above it blurs it.
+    val backdrop = rememberHazeState()
 
     Box(
         modifier = Modifier
@@ -152,6 +158,7 @@ private fun ViewerContent(
                 }
             },
     ) {
+        Box(Modifier.fillMaxSize().hazeSource(backdrop)) {
         HorizontalPager(
             state = pagerState,
             userScrollEnabled = !zoomed,
@@ -186,7 +193,10 @@ private fun ViewerContent(
             }
         }
 
-        AnimatedVisibility(
+        }
+
+        CompositionLocalProvider(LocalHazeState provides backdrop) {
+AnimatedVisibility(
             visible = chromeVisible,
             enter = fadeIn(),
             exit = fadeOut(),
@@ -201,9 +211,11 @@ private fun ViewerContent(
                 modifier = Modifier.statusBarsPadding(),
             )
         }
+}
 
         if (current != null) {
-            AnimatedVisibility(
+            CompositionLocalProvider(LocalHazeState provides backdrop) {
+AnimatedVisibility(
                 visible = chromeVisible,
                 enter = fadeIn(),
                 exit = fadeOut(),
@@ -216,6 +228,7 @@ private fun ViewerContent(
                         .fillMaxWidth()
                         .height(72.dp),
                     shape = RoundedCornerShape(36.dp),
+                    cornerRadius = 36.dp,
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -246,6 +259,7 @@ private fun ViewerContent(
                     }
                 }
             }
+}
         }
     }
 

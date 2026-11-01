@@ -57,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -93,6 +94,17 @@ private val TintSwatches = listOf(
     "Amber" to Color(0xFFFFC04D),
     "Mint" to Color(0xFF6FF2C0),
     "Smoke" to Color(0xFF8A8F98),
+)
+
+private val TextSwatches = listOf(
+    "White" to Color(0xFFF5F6FA),
+    "Pure white" to Color.White,
+    "Ice" to Color(0xFFBFE6FF),
+    "Cyan" to Color(0xFF7DE3FF),
+    "Mint" to Color(0xFF8CF5CF),
+    "Yellow" to Color(0xFFFFE066),
+    "Amber" to Color(0xFFFFB454),
+    "Pink" to Color(0xFFFF9EC4),
 )
 
 private val PreviewNav = listOf(
@@ -190,6 +202,55 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                         )
                     }
                 }
+            }
+
+            GlassCard {
+                SectionTitle("Text colour")
+                Text(
+                    text = "Colour of all text and icons in the app. Pick one that stays readable on your photos.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    TextSwatches.forEach { (name, color) ->
+                        TintSwatch(
+                            name = name,
+                            color = color,
+                            selected = style.textColor == color,
+                            onClick = { settings.update { it.copy(textColor = color) } },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                val hsv = remember(style.textColor) {
+                    FloatArray(3).also { android.graphics.Color.colorToHSV(style.textColor.toArgb(), it) }
+                }
+                GlassSlider(
+                    label = "Custom hue",
+                    value = hsv[0],
+                    onValueChange = { h -> settings.update { it.copy(textColor = Color.hsv(h, hsv[1].coerceAtLeast(0.01f), hsv[2].coerceAtLeast(0.6f))) } },
+                    valueRange = 0f..360f,
+                    valueLabel = "${hsv[0].toInt()}°",
+                )
+                GlassSlider(
+                    label = "Colour strength",
+                    value = hsv[1],
+                    onValueChange = { sat -> settings.update { it.copy(textColor = Color.hsv(hsv[0], sat, hsv[2].coerceAtLeast(0.6f))) } },
+                )
+                GlassSlider(
+                    label = "Brightness",
+                    value = hsv[2],
+                    onValueChange = { v -> settings.update { it.copy(textColor = Color.hsv(hsv[0], hsv[1], v.coerceAtLeast(0.1f))) } },
+                )
+                GlassSlider(
+                    label = "Secondary text visibility",
+                    value = style.secondaryTextOpacity,
+                    onValueChange = { v -> settings.update { it.copy(secondaryTextOpacity = v) } },
+                    valueRange = 0.3f..1f,
+                )
+                Text("Sample heading", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 6.dp))
+                Text("Sample caption text", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             GlassCard {

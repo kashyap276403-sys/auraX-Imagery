@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,7 +49,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.aurax.imagery.ui.components.GlassNavItem
-import com.aurax.imagery.ui.theme.AuraTextPrimary
 import com.aurax.imagery.ui.theme.GlassStyle
 import com.aurax.imagery.ui.theme.LocalGlassStyle
 import dev.chrisbanes.haze.HazeState
@@ -244,10 +244,10 @@ fun LiquidNavCapsule(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = null,
-                        tint = AuraTextPrimary,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.height(24.dp),
                     )
-                    Text(text = item.label, color = AuraTextPrimary, fontSize = 11.sp, maxLines = 1)
+                    Text(text = item.label, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, maxLines = 1)
                 }
             }
         }

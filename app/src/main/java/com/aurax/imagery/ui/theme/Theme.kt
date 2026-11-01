@@ -3,6 +3,7 @@ package com.aurax.imagery.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.CompositionLocalProvider
 
 private val AuraColorScheme = darkColorScheme(
@@ -25,9 +26,20 @@ fun AuraXTheme(
     glassStyle: GlassStyle = GlassStyle.Natural,
     content: @Composable () -> Unit,
 ) {
-    CompositionLocalProvider(LocalGlassStyle provides glassStyle) {
+    // The user's text colour drives every text and icon colour. LocalContentColor is set too,
+    // because plain Text outside a Surface would otherwise fall back to black on black.
+    val text = glassStyle.textColor
+    val colorScheme = AuraColorScheme.copy(
+        onBackground = text,
+        onSurface = text,
+        onSurfaceVariant = text.copy(alpha = glassStyle.secondaryTextOpacity),
+    )
+    CompositionLocalProvider(
+        LocalGlassStyle provides glassStyle,
+        LocalContentColor provides text,
+    ) {
         MaterialTheme(
-            colorScheme = AuraColorScheme,
+            colorScheme = colorScheme,
             typography = AuraTypography,
             content = content,
         )

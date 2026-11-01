@@ -15,7 +15,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.aurax.imagery.ui.glass.LiquidGlassPanel
+import com.aurax.imagery.ui.glass.LocalHazeState
 import com.aurax.imagery.ui.theme.AuraCyan
 import com.aurax.imagery.ui.theme.GlassStyle
 import com.aurax.imagery.ui.theme.LocalGlassStyle
@@ -34,8 +37,25 @@ fun GlassSurface(
     shape: Shape = RoundedCornerShape(LocalGlassStyle.current.cornerRadius),
     style: GlassStyle = LocalGlassStyle.current,
     contentAlignment: Alignment = Alignment.TopStart,
+    /** Corner radius of [shape], used by the liquid shader's edge maths. */
+    cornerRadius: Dp = style.cornerRadius,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    // Inside a backdrop scope (see LocalHazeState) the panel blurs and refracts what is behind it.
+    val haze = LocalHazeState.current
+    if (haze != null) {
+        LiquidGlassPanel(
+            modifier = modifier,
+            hazeState = haze,
+            style = style,
+            cornerRadius = cornerRadius,
+            shape = shape,
+            contentAlignment = contentAlignment,
+            content = content,
+        )
+        return
+    }
+
     val fill = remember(style.tint, style.opacity) {
         Brush.verticalGradient(
             listOf(
