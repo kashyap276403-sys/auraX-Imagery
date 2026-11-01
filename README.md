@@ -24,6 +24,13 @@ The environment used for development has no Android SDK, so builds and unit test
 | 6 | Liquid Glass renderer, Glass Studio | **Prototype only** (builds in CI, unverified on a device): Haze 1.6.10 backdrop blur + AGSL shader in `ui/glass`, `LiquidNavCapsule`, Glass Studio (Settings > Glass Studio). Not yet applied to the app's own bars and sheets until the prototype is checked on a phone |
 | 7 | Settings, privacy, optimization, testing | Settings written (performance, storage, privacy, app info); builds in CI, untested on a device. Large-library paging and a device performance pass are still open |
 
+### Video player upgrade (separate 6-phase plan)
+
+| Phase | Scope | State |
+|---|---|---|
+| V1 | Player UI, auto-hide controls, Screen Ratio system (Fit / Fill / Original / Stretch, 8 aspect presets, zoom slider + drag-to-pan, last mode remembered) | Builds in CI, `VideoDisplayTest` passes. **Not run on a device.** Pinch zoom, double-tap seek, brightness/volume gestures are Phase V2 |
+| V2-V6 | Gestures, subtitles/audio, resume/PiP, cinematic modes, settings, final testing | Not started |
+
 ## Building
 
 Open in Android Studio (latest stable) and run the `app` configuration, or from the command line:
