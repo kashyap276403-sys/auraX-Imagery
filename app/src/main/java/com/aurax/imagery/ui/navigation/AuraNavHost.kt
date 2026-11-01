@@ -49,6 +49,7 @@ fun AuraNavHost(
         composable(AuraDestination.Albums.route) {
             AlbumsScreen(
                 onOpenAlbum = { album -> navController.navigate(AuraRoutes.album(album)) },
+                onOpenViewer = openViewer,
                 onOpenSettings = openSettings,
             )
         }

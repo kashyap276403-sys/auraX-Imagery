@@ -67,3 +67,37 @@ class PlaybackLogicTest {
         assertEquals("Audio 1", trackTitle("", null, 0, "Audio"))
     }
 }
+
+class PlaybackHistoryTest {
+    @Test fun resumeIgnoresBarelyStarted() {
+        assertNull(resumePosition(3_000L, 60_000L))
+    }
+
+    @Test fun resumeKeepsMiddle() {
+        assertEquals(30_000L, resumePosition(30_000L, 60_000L))
+    }
+
+    @Test fun finishedVideosStartOver() {
+        assertNull(resumePosition(55_000L, 60_000L))
+        assertNull(resumePosition(1_190_000L, 1_200_000L))
+        assertNull(resumePosition(1_150_000L, 1_200_000L))
+    }
+
+    @Test fun unknownDurationStillResumes() {
+        assertEquals(20_000L, resumePosition(20_000L, 0L))
+    }
+
+    @Test fun countdown() {
+        assertEquals("5:00", countdownLabel(300_000L))
+        assertEquals("1:00:00", countdownLabel(3_600_000L))
+        assertEquals("0:01", countdownLabel(1L))
+        assertEquals("0:00", countdownLabel(-5L))
+    }
+
+    @Test fun pipAspectIsClamped() {
+        assertEquals(16f / 9f, pipAspect(1920f, 1080f), 0.001f)
+        assertEquals(2.39f, pipAspect(5000f, 1000f), 0.001f)
+        assertEquals(1f / 2.39f, pipAspect(1000f, 5000f), 0.001f)
+        assertEquals(16f / 9f, pipAspect(0f, 0f), 0.001f)
+    }
+}

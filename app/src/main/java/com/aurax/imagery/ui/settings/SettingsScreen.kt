@@ -70,6 +70,7 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
 
     var cacheBytes by remember { mutableLongStateOf(0L) }
     var confirmClearFavorites by remember { mutableStateOf(false) }
+    var confirmClearHistory by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { cacheBytes = thumbnailCacheBytes(context) }
 
     ScreenScaffold(title = "Settings", onBack = onBack) {
@@ -119,6 +120,13 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                     scope.launch { container.preferences.setVideoGestures(gestures.copy(volume = on)) }
                 }
                 Body("With a vertical gesture off, swiping down on that half closes the video instead.")
+                val resume by container.preferences.videoResume.collectAsStateWithLifecycle(initialValue = true)
+                SwitchRow("Resume watching", "Continue a video from where you stopped", resume) { on ->
+                    scope.launch { container.preferences.setVideoResume(on) }
+                }
+                val historyCount by container.history.observeCount().collectAsStateWithLifecycle(initialValue = 0)
+                InfoRow("Watch history", if (historyCount == 1) "1 video" else "$historyCount videos")
+                TextButton(onClick = { confirmClearHistory = true }, enabled = historyCount > 0) { Text("Clear watch history") }
             }
 
             GlassCard {
@@ -184,6 +192,24 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                 Body("A premium offline-first gallery with a liquid-glass interface. Your photos and videos never leave this device.")
             }
         }
+    }
+
+    if (confirmClearHistory) {
+        AlertDialog(
+            onDismissRequest = { confirmClearHistory = false },
+            title = { Text("Clear watch history?") },
+            text = { Text("Videos will start from the beginning and Continue watching empties. Your videos and bookmarks are not touched.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClearHistory = false
+                    scope.launch {
+                        container.history.clear()
+                        Toast.makeText(context, "Watch history cleared", Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Clear") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClearHistory = false }) { Text("Cancel") } },
+        )
     }
 
     if (confirmClearFavorites) {

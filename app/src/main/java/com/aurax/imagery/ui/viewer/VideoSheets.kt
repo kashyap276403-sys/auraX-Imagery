@@ -308,3 +308,118 @@ fun QueueSheet(
         Spacer(Modifier.height(8.dp))
     }
 }
+
+/** Pick a sleep timer; playback pauses when it runs out. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun SleepTimerSheet(
+    endsAtElapsed: Long?,
+    onSet: (Int) -> Unit,
+    onCancel: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var custom by remember { mutableStateOf("") }
+    val remaining by androidx.compose.runtime.produceState(initialValue = 0L, endsAtElapsed) {
+        while (endsAtElapsed != null) {
+            value = endsAtElapsed - android.os.SystemClock.elapsedRealtime()
+            kotlinx.coroutines.delay(1000L)
+        }
+        value = 0L
+    }
+    LiquidBottomSheet(onDismiss = onDismiss) {
+        Text("Sleep timer", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = if (endsAtElapsed != null) "Pauses in ${com.aurax.imagery.domain.player.countdownLabel(remaining)}" else "Playback pauses when the timer ends.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.aurax.imagery.domain.player.SLEEP_TIMER_MINUTES.forEach { minutes ->
+                FilterChip(selected = false, onClick = { onSet(minutes); onDismiss() }, label = { Text("$minutes min") })
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedTextField(
+                value = custom,
+                onValueChange = { custom = it.filter(Char::isDigit).take(3) },
+                singleLine = true,
+                label = { Text("Custom (minutes)") },
+                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = { custom.toIntOrNull()?.takeIf { it in 1..999 }?.let { onSet(it); onDismiss() } },
+                enabled = custom.toIntOrNull()?.let { it in 1..999 } == true,
+            ) { Text("Start") }
+        }
+        if (endsAtElapsed != null) {
+            TextButton(onClick = { onCancel(); onDismiss() }) { Text("Turn timer off") }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/** What the player reports about the stream it is decoding right now. */
+data class VideoTechInfo(
+    val resolution: String?,
+    val frameRate: String?,
+    val videoCodec: String?,
+    val videoBitrate: String?,
+    val audio: String?,
+)
+
+/** Full video details: file facts from the index plus technical facts from the player. */
+@Composable
+fun VideoDetailsSheet(item: com.aurax.imagery.domain.model.MediaItem, tech: VideoTechInfo?, location: String?, onDismiss: () -> Unit) {
+    val taken = remember(item.dateTakenMillis) {
+        java.time.Instant.ofEpochMilli(item.dateTakenMillis).atZone(java.time.ZoneId.systemDefault())
+            .format(java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM, java.time.format.FormatStyle.SHORT))
+    }
+    LiquidBottomSheet(onDismiss = onDismiss) {
+        Text("Video details", style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(12.dp))
+        DetailRow("Name", item.displayName)
+        DetailRow("Created", taken)
+        DetailRow("File size", com.aurax.imagery.utils.formatFileSize(item.sizeBytes))
+        item.durationMillis?.let { DetailRow("Duration", formatDuration(it)) }
+        DetailRow("Type", item.mimeType)
+        DetailRow("Location", location ?: item.albumName ?: "Unknown")
+        val resolution = tech?.resolution ?: if (item.width > 0 && item.height > 0) "${item.width} × ${item.height}" else null
+        resolution?.let { DetailRow("Resolution", it) }
+        tech?.frameRate?.let { DetailRow("Frame rate", it) }
+        tech?.videoCodec?.let { DetailRow("Video codec", it) }
+        tech?.videoBitrate?.let { DetailRow("Video bitrate", it) }
+        tech?.audio?.let { DetailRow("Audio", it) }
+        if (tech == null) {
+            Text(
+                "Codec, frame rate and bitrate show once the video has started loading.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun DetailRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.padding(horizontal = 8.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}

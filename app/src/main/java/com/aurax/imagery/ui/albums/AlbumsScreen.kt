@@ -14,9 +14,17 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import com.aurax.imagery.domain.player.RecentVideo
+import com.aurax.imagery.ui.gallery.MediaSource
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.item
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Favorite
@@ -54,7 +62,11 @@ import com.aurax.imagery.utils.MediaAccess
  * MediaStore (Camera, Screenshots, Download, WhatsApp media where accessible, ...).
  */
 @Composable
-fun AlbumsScreen(onOpenAlbum: (Album) -> Unit, onOpenSettings: () -> Unit) {
+fun AlbumsScreen(
+    onOpenAlbum: (Album) -> Unit,
+    onOpenViewer: (MediaSource, Long) -> Unit,
+    onOpenSettings: () -> Unit,
+) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
     val access = rememberMediaAccessState(onAccessChanged = { container.indexer.enqueue() })
 
@@ -84,9 +96,62 @@ fun AlbumsScreen(onOpenAlbum: (Album) -> Unit, onOpenSettings: () -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
+                    val unfinished = state.recent.filter { it.resumeAt != null }.take(10)
+                    val played = state.recent.filter { it.resumeAt == null }.take(10)
+                    if (unfinished.isNotEmpty()) {
+                        item(key = "continue", span = { GridItemSpan(maxLineSpan) }) {
+                            RecentRow("Continue watching", unfinished) { onOpenViewer(MediaSource.All, it.item.id) }
+                        }
+                    }
+                    if (played.isNotEmpty()) {
+                        item(key = "played", span = { GridItemSpan(maxLineSpan) }) {
+                            RecentRow("Recently played", played) { onOpenViewer(MediaSource.All, it.item.id) }
+                        }
+                    }
                     items(items = albums, key = { it.ref.toString() }) { album ->
                         AlbumTile(album = album, onClick = { onOpenAlbum(album) })
                     }
+                }
+            }
+        }
+    }
+}
+
+/** Horizontal strip of video cards; unfinished ones carry a thin progress bar. */
+@Composable
+private fun RecentRow(title: String, videos: List<RecentVideo>, onOpen: (RecentVideo) -> Unit) {
+    Column {
+        Text(text = title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(start = 4.dp, bottom = 8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items = videos, key = { it.item.id }) { video ->
+                val shape = RoundedCornerShape(16.dp)
+                Column(modifier = Modifier.width(156.dp).clip(shape).clickable { onOpen(video) }) {
+                    Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(shape).background(Color(0xFF111114))) {
+                        AsyncImage(
+                            model = video.item.uri,
+                            contentDescription = video.item.displayName,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                        if (video.resumeAt != null) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .fillMaxWidth()
+                                    .height(3.dp)
+                                    .background(Color.White.copy(alpha = 0.3f)),
+                            ) {
+                                Box(Modifier.fillMaxWidth(video.fraction).fillMaxHeight().background(Color.White))
+                            }
+                        }
+                    }
+                    Text(
+                        text = video.item.displayName,
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(start = 2.dp, top = 6.dp),
+                    )
                 }
             }
         }

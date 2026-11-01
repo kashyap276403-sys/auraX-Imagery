@@ -33,6 +33,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import android.content.res.Configuration
+import android.os.SystemClock
+import androidx.activity.ComponentActivity
+import androidx.compose.runtime.DisposableEffect
+import androidx.core.app.PictureInPictureModeChangedInfo
+import androidx.core.util.Consumer
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.delay
@@ -135,6 +140,20 @@ private fun ViewerContent(
     var autoPlayNext by remember { mutableStateOf(true) }
     var pendingAutoPlay by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
+    var sleepEndsAt by remember { mutableStateOf<Long?>(null) }
+    var showSleep by remember { mutableStateOf(false) }
+    var inPip by remember { mutableStateOf(false) }
+    DisposableEffect(context) {
+        val host = context.findActivity() as? ComponentActivity
+        val listener = Consumer<PictureInPictureModeChangedInfo> { inPip = it.isInPictureInPictureMode }
+        host?.addOnPictureInPictureModeChangedListener(listener)
+        onDispose { host?.removeOnPictureInPictureModeChangedListener(listener) }
+    }
+    val session = PlayerSession(
+        sleepEndsAt = sleepEndsAt,
+        onShowSleepTimer = { showSleep = true },
+        onSleepExpired = { sleepEndsAt = null },
+    )
     var videoBusy by remember { mutableStateOf(false) }
     var interactionTick by remember { mutableIntStateOf(0) }
 
@@ -235,7 +254,7 @@ private fun ViewerContent(
                 VideoPlayerPage(
                     item = item,
                     isCurrentPage = isCurrent,
-                    controlsVisible = chromeVisible,
+                    controlsVisible = chromeVisible && !inPip,
                     isLandscape = landscape || orientationLandscape,
                     actionBarVisible = actionBarAllowed,
                     onToggleControls = { chromeVisible = !chromeVisible },
@@ -246,7 +265,8 @@ private fun ViewerContent(
                     onCycleOrientation = { orientationLock = orientationLock.next() },
                     queue = queueNav,
                     onClose = onClose,
-                    onShowDetails = { showInfo = true },
+                    inPip = inPip,
+                    session = session,
                     onPlayingChanged = { videoPlaying = it },
                     onBusyChanged = { videoBusy = it },
                     onInteraction = { interactionTick++ },
@@ -294,7 +314,7 @@ AnimatedVisibility(
         if (current != null) {
             CompositionLocalProvider(LocalHazeState provides backdrop) {
 AnimatedVisibility(
-                visible = chromeVisible && actionBarAllowed,
+                visible = chromeVisible && actionBarAllowed && !inPip,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter),
@@ -336,6 +356,15 @@ AnimatedVisibility(
             }
 }
         }
+    }
+
+    if (showSleep) {
+        SleepTimerSheet(
+            endsAtElapsed = sleepEndsAt,
+            onSet = { minutes -> sleepEndsAt = SystemClock.elapsedRealtime() + minutes * 60_000L },
+            onCancel = { sleepEndsAt = null },
+            onDismiss = { showSleep = false },
+        )
     }
 
     if (showQueue) {

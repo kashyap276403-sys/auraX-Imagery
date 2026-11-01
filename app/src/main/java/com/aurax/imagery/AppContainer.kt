@@ -8,6 +8,11 @@ import com.aurax.imagery.data.media.MediaIndexer
 import com.aurax.imagery.data.media.MediaStoreScanner
 import com.aurax.imagery.data.repository.BookmarkRepositoryImpl
 import com.aurax.imagery.data.repository.MediaRepositoryImpl
+import com.aurax.imagery.data.repository.PlaybackHistoryRepositoryImpl
+import com.aurax.imagery.domain.repository.PlaybackHistoryRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import com.aurax.imagery.domain.repository.BookmarkRepository
 import com.aurax.imagery.domain.repository.MediaRepository
 import com.aurax.imagery.domain.repository.PreferencesRepository
@@ -30,6 +35,9 @@ class AppContainer(context: Context) {
 
     val mediaRepository: MediaRepository by lazy { MediaRepositoryImpl(database.mediaDao()) }
     val bookmarks: BookmarkRepository by lazy { BookmarkRepositoryImpl(database.bookmarkDao()) }
+    val history: PlaybackHistoryRepository by lazy { PlaybackHistoryRepositoryImpl(database.playbackProgressDao()) }
+    /** For work that must outlive a screen, e.g. saving a resume position as the viewer closes. */
+    val appScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val preferences: PreferencesRepository by lazy { DataStorePreferencesRepository(appContext) }
 
     val indexUpdater: MediaIndexUpdater by lazy {

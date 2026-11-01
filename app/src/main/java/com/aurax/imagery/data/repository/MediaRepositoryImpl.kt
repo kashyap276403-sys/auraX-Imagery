@@ -67,7 +67,7 @@ class MediaRepositoryImpl(private val dao: MediaDao) : MediaRepository {
         }
 }
 
-private fun MediaRow.toDomain() = MediaItem(
+internal fun MediaRow.toDomain() = MediaItem(
     id = media.id,
     uri = media.uri,
     displayName = media.displayName,

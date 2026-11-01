@@ -8,19 +8,35 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [MediaEntity::class, FavoriteEntity::class, BookmarkEntity::class],
-    version = 2,
+    entities = [MediaEntity::class, FavoriteEntity::class, BookmarkEntity::class, PlaybackProgressEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class AuraDatabase : RoomDatabase() {
     abstract fun mediaDao(): MediaDao
     abstract fun bookmarkDao(): BookmarkDao
+    abstract fun playbackProgressDao(): PlaybackProgressDao
 
     companion object {
         fun create(context: Context): AuraDatabase =
             Room.databaseBuilder(context.applicationContext, AuraDatabase::class.java, "aurax.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
+
+        /** Adds resume positions / playback history. */
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `playback_progress` (" +
+                        "`mediaId` INTEGER NOT NULL, " +
+                        "`positionMs` INTEGER NOT NULL, " +
+                        "`durationMs` INTEGER NOT NULL, " +
+                        "`lastPlayedAt` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`mediaId`))",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_playback_progress_lastPlayedAt` ON `playback_progress` (`lastPlayedAt`)")
+            }
+        }
 
         /** Adds video bookmarks; existing media index and favorites are untouched. */
         private val MIGRATION_1_2 = object : Migration(1, 2) {

@@ -26,4 +26,8 @@ interface PreferencesRepository {
 
     val videoGestures: Flow<VideoGestureSettings>
     suspend fun setVideoGestures(settings: VideoGestureSettings)
+
+    /** Continue from the last position when a video is opened again. */
+    val videoResume: Flow<Boolean>
+    suspend fun setVideoResume(enabled: Boolean)
 }

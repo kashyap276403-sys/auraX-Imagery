@@ -1,6 +1,24 @@
 package com.aurax.imagery.ui.viewer
 
+import android.app.PictureInPictureParams
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.SystemClock
+import android.provider.MediaStore
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PictureInPictureAlt
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.produceState
+import androidx.core.content.ContextCompat
+import com.aurax.imagery.data.media.VideoFrameSaver
+import com.aurax.imagery.domain.player.resumePosition
+import com.aurax.imagery.ui.gallery.shareItems
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.widget.Toast
@@ -167,6 +185,13 @@ data class QueueNav(
     val consumeAutoPlay: () -> Boolean,
 )
 
+/** Viewer-level extras the page needs: sleep timer state. */
+data class PlayerSession(
+    val sleepEndsAt: Long?,
+    val onShowSleepTimer: () -> Unit,
+    val onSleepExpired: () -> Unit,
+)
+
 /**
  * One video page in the viewer pager: the video frame (screen mode, aspect preset, zoom) plus
  * its own chrome - top bar, centre transport, thin seek row.
@@ -187,7 +212,8 @@ fun VideoPlayerPage(
     onToggleControls: () -> Unit,
     onToggleFullscreen: () -> Unit,
     onClose: () -> Unit,
-    onShowDetails: () -> Unit,
+    inPip: Boolean,
+    session: PlayerSession,
     onPlayingChanged: (Boolean) -> Unit,
     onBusyChanged: (Boolean) -> Unit,
     onInteraction: () -> Unit,
@@ -223,6 +249,11 @@ fun VideoPlayerPage(
     var showTracksSheet by remember { mutableStateOf(false) }
     var showAbSheet by remember { mutableStateOf(false) }
     var showBookmarks by remember { mutableStateOf(false) }
+    var showDetails by remember { mutableStateOf(false) }
+    var hasPlayed by remember(item.id) { mutableStateOf(false) }
+    var resumedAt by remember(item.id) { mutableStateOf<Long?>(null) }
+    var textureRef by remember(item.id) { mutableStateOf<TextureView?>(null) }
+    val activity = remember(context) { context.findActivity() }
     var tracks by remember(item.id) { mutableStateOf(Tracks.EMPTY) }
     var cueText by remember(item.id) { mutableStateOf("") }
     var subtitleSize by remember { mutableStateOf(SubtitleSize.Medium) }
@@ -279,6 +310,66 @@ fun VideoPlayerPage(
         player?.repeatMode = if (queue.repeatMode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
     LaunchedEffect(ended, isCurrentPage) { if (ended && isCurrentPage) latestQueue.onEnded() }
+
+    // Resume position: written while playing, when paused, at the end and when the page closes.
+    fun saveProgress(p: ExoPlayer, finished: Boolean = false) {
+        if (!hasPlayed) return
+        val total = if (p.duration != C.TIME_UNSET && p.duration > 0) p.duration else durationMs
+        val position = if (finished) total else p.currentPosition
+        container.appScope.launch { container.history.save(item.id, position, total) }
+    }
+    LaunchedEffect(player) {
+        val active = player ?: return@LaunchedEffect
+        if (!container.preferences.videoResume.first()) return@LaunchedEffect
+        val saved = container.history.get(item.id) ?: return@LaunchedEffect
+        val total = if (saved.durationMs > 0) saved.durationMs else (item.durationMillis ?: 0L)
+        val target = resumePosition(saved.positionMs, total) ?: return@LaunchedEffect
+        active.seekTo(target)
+        positionMs = target
+        resumedAt = target
+    }
+    LaunchedEffect(resumedAt) {
+        if (resumedAt != null) {
+            delay(6000L)
+            resumedAt = null
+        }
+    }
+
+    // Sleep timer: pause when it runs out (it follows you to the next video).
+    LaunchedEffect(isCurrentPage, session.sleepEndsAt, player) {
+        val end = session.sleepEndsAt
+        val active = player
+        if (isCurrentPage && end != null && active != null) {
+            delay((end - SystemClock.elapsedRealtime()).coerceAtLeast(0L))
+            active.pause()
+            session.onSleepExpired()
+        }
+    }
+
+    // Picture-in-picture: keep the system informed so the home gesture can shrink a playing video.
+    LaunchedEffect(isCurrentPage, isPlaying, videoW, videoH) {
+        if (isCurrentPage && activity != null) {
+            setPipParams(activity, pipParams(context, videoW, videoH, isPlaying, autoEnter = isPlaying))
+        }
+    }
+    DisposableEffect(isCurrentPage) {
+        onDispose {
+            if (isCurrentPage && activity != null) {
+                setPipParams(activity, PictureInPictureParams.Builder().setAutoEnterEnabled(false).build())
+            }
+        }
+    }
+    DisposableEffect(isCurrentPage, player) {
+        val active = player
+        if (!isCurrentPage || active == null) return@DisposableEffect onDispose { }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: Intent?) {
+                if (active.isPlaying) active.pause() else active.play()
+            }
+        }
+        ContextCompat.registerReceiver(context, receiver, IntentFilter(PIP_ACTION_TOGGLE), ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { context.unregisterReceiver(receiver) }
+    }
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         container.preferences.videoScreenMode.first()
@@ -294,8 +385,8 @@ fun VideoPlayerPage(
         scope.launch { container.preferences.setVideoDisplay(mode.name, newPreset.name) }
     }
     LaunchedEffect(zoom) { onZoomChanged(zoom > 1.001f) }
-    LaunchedEffect(showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showMenu, dragging) {
-        onBusyChanged(showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showMenu || dragging)
+    LaunchedEffect(showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showDetails, showMenu, dragging) {
+        onBusyChanged(showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showDetails || showMenu || dragging)
     }
     LaunchedEffect(isPlaying, isCurrentPage) { if (isCurrentPage) onPlayingChanged(isPlaying) }
 
@@ -313,6 +404,7 @@ fun VideoPlayerPage(
             }
         player = created
         onDispose {
+            saveProgress(created)
             created.release()
             player = null
             isPlaying = false
@@ -326,10 +418,12 @@ fun VideoPlayerPage(
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
                 isPlaying = playing
+                if (playing) hasPlayed = true else saveProgress(active)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
                 ended = playbackState == Player.STATE_ENDED
+                if (ended) saveProgress(active, finished = true)
                 if (playbackState == Player.STATE_READY && active.duration != C.TIME_UNSET) {
                     durationMs = active.duration
                 }
@@ -369,8 +463,13 @@ fun VideoPlayerPage(
     // Poll the playback position; slower while paused.
     LaunchedEffect(player) {
         val active = player ?: return@LaunchedEffect
+        var lastSave = SystemClock.elapsedRealtime()
         while (isActive) {
             positionMs = active.currentPosition.coerceAtLeast(0L)
+            if (isPlaying && SystemClock.elapsedRealtime() - lastSave > 5_000L) {
+                saveProgress(active)
+                lastSave = SystemClock.elapsedRealtime()
+            }
             abRange.loopTarget(positionMs)?.let { target ->
                 active.seekTo(target)
                 positionMs = target
@@ -383,7 +482,7 @@ fun VideoPlayerPage(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, player) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) player?.pause()
+            if (event == Lifecycle.Event.ON_STOP) player?.pause()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -427,7 +526,7 @@ fun VideoPlayerPage(
             player?.let { active ->
                 key(active) {
                     AndroidView(
-                        factory = { ctx -> TextureView(ctx).also { active.setVideoTextureView(it) } },
+                        factory = { ctx -> TextureView(ctx).also { active.setVideoTextureView(it); textureRef = it } },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -557,6 +656,26 @@ fun VideoPlayerPage(
             )
         }
 
+        resumedAt?.let { at ->
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 150.dp)
+                    .clip(CircleShape)
+                    .background(ScrimColor)
+                    .padding(start = 16.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Continuing from ${formatDuration(at)}", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                TextButton(onClick = {
+                    player?.seekTo(0L)
+                    positionMs = 0L
+                    resumedAt = null
+                }) { Text("Start over") }
+            }
+        }
+
         // Brightness / volume level and double-tap seek feedback.
         indicator?.let { LevelPill(it, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp)) }
         seekFlash?.let { zone ->
@@ -599,7 +718,7 @@ fun VideoPlayerPage(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
                 )
-                IconButton(onClick = onShowDetails) {
+                IconButton(onClick = { showDetails = true }) {
                     Icon(Icons.Rounded.Info, contentDescription = "Details", tint = Color.White)
                 }
                 Box {
@@ -664,11 +783,60 @@ fun VideoPlayerPage(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text("Picture in picture") },
+                            leadingIcon = { Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                if (activity == null || !enterPip(activity, pipParams(context, videoW, videoH, isPlaying, isPlaying))) {
+                                    Toast.makeText(context, "Picture-in-picture isn't available", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (session.sleepEndsAt != null) "Sleep timer · on" else "Sleep timer") },
+                            leadingIcon = { Icon(Icons.Rounded.Bedtime, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                session.onShowSleepTimer()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Save frame as photo") },
+                            leadingIcon = { Icon(Icons.Rounded.PhotoCamera, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                val view = textureRef
+                                val w = videoW.toInt().coerceIn(2, 4096)
+                                val h = videoH.toInt().coerceIn(2, 4096)
+                                val frame = if (view != null && firstFrameShown) runCatching { view.getBitmap(w, h) }.getOrNull() else null
+                                if (frame == null) {
+                                    Toast.makeText(context, "Start the video first, then save a frame", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    scope.launch {
+                                        VideoFrameSaver(context).save(frame)
+                                            .onSuccess {
+                                                Toast.makeText(context, "Saved to Pictures/AuraX Imagery", Toast.LENGTH_SHORT).show()
+                                                container.indexer.enqueue()
+                                            }
+                                            .onFailure { Toast.makeText(context, "Couldn't save the frame", Toast.LENGTH_SHORT).show() }
+                                    }
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Share") },
+                            leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                shareItems(context, listOf(item))
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Video details") },
                             leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null) },
                             onClick = {
                                 showMenu = false
-                                onShowDetails()
+                                showDetails = true
                             },
                         )
                     }
@@ -679,7 +847,7 @@ fun VideoPlayerPage(
         // Centre transport: back 10s, play/pause, forward 10s.
         if (active != null && ready) {
             AnimatedVisibility(
-                visible = controlsVisible || !isPlaying,
+                visible = (controlsVisible || !isPlaying) && !inPip,
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
@@ -766,6 +934,19 @@ fun VideoPlayerPage(
                 )
             }
         }
+    }
+
+    if (showDetails) {
+        val tech = remember(tracks, firstFrameShown) { player?.let(::techInfo) }
+        val location by produceState<String?>(null, item.id) {
+            value = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.query(Uri.parse(item.uri), arrayOf(MediaStore.MediaColumns.RELATIVE_PATH), null, null, null)
+                        ?.use { c -> if (c.moveToFirst()) c.getString(0) else null }
+                }.getOrNull()
+            }
+        }
+        VideoDetailsSheet(item = item, tech = tech, location = location, onDismiss = { showDetails = false })
     }
 
     if (showTracksSheet) {
@@ -888,6 +1069,26 @@ private fun trackOptions(tracks: Tracks, type: Int, kind: String): List<TrackOpt
         }
     }
     return out
+}
+
+/** Technical facts about the stream being decoded, if the player has started on it. */
+private fun techInfo(player: ExoPlayer): VideoTechInfo? {
+    val video = player.videoFormat ?: return null
+    val audio = player.audioFormat
+    fun bitrateLabel(bps: Int): String? = if (bps > 0) "%.1f Mbps".format(bps / 1_000_000f) else null
+    return VideoTechInfo(
+        resolution = if (video.width > 0 && video.height > 0) "${video.width} × ${video.height}" else null,
+        frameRate = if (video.frameRate > 0f) "%.1f fps".format(video.frameRate) else null,
+        videoCodec = (video.codecs ?: video.sampleMimeType?.substringAfter('/')?.uppercase()),
+        videoBitrate = bitrateLabel(if (video.averageBitrate > 0) video.averageBitrate else video.bitrate),
+        audio = audio?.let { a ->
+            listOfNotNull(
+                a.sampleMimeType?.substringAfter('/')?.uppercase(),
+                channelLabel(a.channelCount),
+                if (a.bitrate > 0) "${a.bitrate / 1000} kbps" else null,
+            ).joinToString(" · ").ifEmpty { null }
+        },
+    )
 }
 
 private fun displayNameOf(context: Context, uri: Uri): String =
