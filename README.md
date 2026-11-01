@@ -31,7 +31,8 @@ The environment used for development has no Android SDK, so builds and unit test
 | V1 | Player UI, auto-hide controls, Screen Ratio system (Fit / Fill / Original / Stretch, 8 aspect presets, zoom slider + drag-to-pan, last mode remembered) | Builds in CI, `VideoDisplayTest` passes. **Not run on a device.** Pinch zoom, double-tap seek, brightness/volume gestures are Phase V2 |
 | V2 | Pinch zoom + drag pan, double-tap seek (±10s), brightness (left half) and volume (right half) swipes with indicators, playback speed 0.25x-2x, orientation lock (Auto/Portrait/Landscape), gesture toggles in Settings > Video player | Builds in CI, `VideoGesturesTest` passes. **Not run on a device** |
 | V3 | Embedded + external .srt subtitles (size, position), audio track picker, A-B repeat, repeat off/one/queue, playback queue (next/previous/autoplay/remove), bookmarks (Room DB v2 migration), frame preview while scrubbing | Builds in CI, `PlaybackLogicTest` passes. **Not run on a device**; the Room 1->2 migration has never run on a real database. No subtitle delay (Media3 has no offset) |
-| V4-V6 | Resume/PiP, cinematic modes, settings, final testing | Not started |
+| V4 | Resume watching (Room v3 `playback_progress`, also the history), Continue watching / Recently played rows in Albums, sleep timer, Picture-in-Picture (play/pause button, auto-enter), save current frame as PNG, full video details sheet, Settings: resume switch + clear history | Builds in CI, `PlaybackHistoryTest` passes. **Not run on a device**; Room 2->3 migration and PiP never exercised on a phone |
+| V5-V6 | Cinematic modes, settings, final testing | Not started |
 
 ## Building
 
