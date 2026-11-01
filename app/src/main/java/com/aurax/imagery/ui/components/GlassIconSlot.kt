@@ -1,5 +1,6 @@
 package com.aurax.imagery.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Box
@@ -35,6 +36,36 @@ fun GlassIconSlot(
         contentAlignment = Alignment.Center,
         content = content,
     )
+}
+
+/** A faint dark round chip for icons that float over photos: no glass, no blur, just legibility. */
+@Composable
+fun ScrimIconSlot(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.35f), CircleShape),
+        contentAlignment = Alignment.Center,
+        content = content,
+    )
+}
+
+/** Plain icon button on a [ScrimIconSlot]. */
+@Composable
+fun ScrimIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    ScrimIconSlot(modifier) {
+        IconButton(onClick = onClick) {
+            Icon(imageVector = icon, contentDescription = contentDescription, tint = androidx.compose.ui.graphics.Color.White)
+        }
+    }
 }
 
 /** Round glass icon button. */
@@ -83,7 +114,7 @@ fun TabTopRow(
     ) {
         actions()
         if (onOpenSettings != null) {
-            GlassIconButton(Icons.Rounded.Settings, "Settings", onOpenSettings)
+            ScrimIconButton(Icons.Rounded.Settings, "Settings", onOpenSettings)
         }
     }
 }

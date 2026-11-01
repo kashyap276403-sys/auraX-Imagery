@@ -61,6 +61,7 @@ fun MediaTimelineGrid(
     onItemLongClick: (MediaItem) -> Unit,
     onSectionToggle: (TimelineSection) -> Unit,
     modifier: Modifier = Modifier,
+    contentTopPadding: androidx.compose.ui.unit.Dp = 4.dp,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 104.dp),
@@ -68,7 +69,7 @@ fun MediaTimelineGrid(
         contentPadding = PaddingValues(
             start = 2.dp,
             end = 2.dp,
-            top = 4.dp,
+            top = contentTopPadding,
             bottom = LocalFloatingBarInset.current,
         ),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -118,11 +119,6 @@ private fun SectionHeader(
             text = section.title.orEmpty(),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.weight(1f),
-        )
-        Text(
-            text = section.items.size.toString(),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (selecting) {
             Spacer(Modifier.size(8.dp))

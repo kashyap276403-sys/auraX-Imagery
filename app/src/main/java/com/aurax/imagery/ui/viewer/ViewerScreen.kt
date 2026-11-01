@@ -32,7 +32,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
-import com.aurax.imagery.ui.components.GlassIconButton
+import android.content.res.Configuration
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.platform.LocalConfiguration
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.CompositionLocalProvider
 import com.aurax.imagery.ui.glass.LocalHazeState
 import dev.chrisbanes.haze.hazeSource
@@ -120,6 +123,9 @@ private fun ViewerContent(
     var zoomed by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     var landscape by remember { mutableStateOf(false) }
+    var videoPlaying by remember { mutableStateOf(false) }
+    var videoBusy by remember { mutableStateOf(false) }
+    var interactionTick by remember { mutableIntStateOf(0) }
 
     val dragY = remember { Animatable(0f) }
     val dismissDistance = with(LocalDensity.current) { 140.dp.toPx() }
@@ -135,6 +141,19 @@ private fun ViewerContent(
     }
 
     val current = items.getOrNull(pagerState.currentPage)
+    val isVideo = current?.type == MediaType.Video
+    val orientationLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // Photos always get the action bar. Videos only while paused in portrait, so playback stays clean.
+    val actionBarAllowed = current != null && (!isVideo || (!videoPlaying && !landscape && !orientationLandscape))
+
+    LaunchedEffect(current?.id) { videoPlaying = false; videoBusy = false }
+    // While a video plays, the controls fade out after a few idle seconds; any interaction restarts it.
+    LaunchedEffect(chromeVisible, videoPlaying, videoBusy, interactionTick, isVideo) {
+        if (chromeVisible && isVideo && videoPlaying && !videoBusy) {
+            delay(3500L)
+            chromeVisible = false
+        }
+    }
     // The photo/video pager is the backdrop; only the chrome drawn above it blurs it.
     val backdrop = rememberHazeState()
 
@@ -181,9 +200,16 @@ private fun ViewerContent(
                     item = item,
                     isCurrentPage = isCurrent,
                     controlsVisible = chromeVisible,
-                    isLandscape = landscape,
+                    isLandscape = landscape || orientationLandscape,
+                    actionBarVisible = actionBarAllowed,
                     onToggleControls = { chromeVisible = !chromeVisible },
                     onToggleFullscreen = { landscape = !landscape },
+                    onClose = onClose,
+                    onShowDetails = { showInfo = true },
+                    onPlayingChanged = { videoPlaying = it },
+                    onBusyChanged = { videoBusy = it },
+                    onInteraction = { interactionTick++ },
+                    onZoomChanged = { isZoomed -> if (pagerState.settledPage == page) zoomed = isZoomed },
                 )
             } else {
                 ZoomableImage(
@@ -199,7 +225,7 @@ private fun ViewerContent(
 
         CompositionLocalProvider(LocalHazeState provides backdrop) {
 AnimatedVisibility(
-            visible = chromeVisible,
+            visible = chromeVisible && !isVideo,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter),
@@ -211,10 +237,14 @@ AnimatedVisibility(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                GlassIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onClose)
+                IconButton(onClick = onClose) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
+                }
                 // Details (name, date, size, camera info...) live behind this button instead of on screen.
                 if (current != null) {
-                    GlassIconButton(Icons.Rounded.Info, "Details", onClick = { showInfo = true })
+                    IconButton(onClick = { showInfo = true }) {
+                        Icon(Icons.Rounded.Info, contentDescription = "Details", tint = Color.White)
+                    }
                 }
             }
         }
@@ -223,7 +253,7 @@ AnimatedVisibility(
         if (current != null) {
             CompositionLocalProvider(LocalHazeState provides backdrop) {
 AnimatedVisibility(
-                visible = chromeVisible,
+                visible = chromeVisible && actionBarAllowed,
                 enter = fadeIn(),
                 exit = fadeOut(),
                 modifier = Modifier.align(Alignment.BottomCenter),

@@ -7,6 +7,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ArrowDownward
@@ -45,7 +52,7 @@ import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortField
 import com.aurax.imagery.domain.model.SortOrder
 import com.aurax.imagery.ui.components.EmptyState
-import com.aurax.imagery.ui.components.GlassIconSlot
+import com.aurax.imagery.ui.components.ScrimIconSlot
 import com.aurax.imagery.ui.components.GlassTopBar
 import com.aurax.imagery.ui.components.TabTopRow
 import com.aurax.imagery.ui.components.LoadingState
@@ -86,7 +93,16 @@ fun MediaListScreen(
     // Back leaves selection mode first, then the screen.
     BackHandler(enabled = selecting) { viewModel.clearSelection() }
 
-    Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
+    // Main tabs are full screen: the grid runs under the status bar and the buttons float on top.
+    val tabMode = !selecting && onBack == null
+    val density = LocalDensity.current
+    val statusTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    var headerPx by remember { mutableIntStateOf(0) }
+    val headerDp = with(density) { headerPx.toDp() }
+    val topInset = if (tabMode) statusTop + 64.dp else 0.dp
+
+    Box(modifier = modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().then(if (tabMode) Modifier else Modifier.statusBarsPadding())) {
         if (selecting) {
             GlassTopBar(
                 title = "${state.selectedIds.size} selected",
@@ -130,19 +146,6 @@ fun MediaListScreen(
                     }
                 },
             )
-        } else {
-            // Main tab: no header, only small glass buttons (sort and Settings).
-            TabTopRow(onOpenSettings = onOpenSettings) {
-                if (state.itemCount > 0) {
-                    GlassIconSlot {
-                        SortGroupMenu(
-                            preferences = state.preferences,
-                            onSort = viewModel::setSort,
-                            onGroup = viewModel::setGrouping,
-                        )
-                    }
-                }
-            }
         }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -152,8 +155,9 @@ fun MediaListScreen(
                 state.itemCount == 0 -> EmptyState(icon = emptyIcon, title = emptyTitle, message = emptyMessage)
 
                 else -> Column(modifier = Modifier.fillMaxSize()) {
-                    header()
+                    if (!tabMode) header()
                     MediaTimelineGrid(
+                        contentTopPadding = if (tabMode) topInset + headerDp else 4.dp,
                         rows = state.rows,
                         selectedIds = state.selectedIds,
                         selecting = selecting,
@@ -169,6 +173,31 @@ fun MediaListScreen(
                 }
             }
         }
+    }
+
+    if (tabMode) {
+        // Banner (e.g. partial access) sits under the buttons; the grid pads itself by its height.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = topInset)
+                .onSizeChanged { headerPx = it.height },
+        ) { header() }
+        TabTopRow(
+            onOpenSettings = onOpenSettings,
+            modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding(),
+        ) {
+            if (state.itemCount > 0) {
+                ScrimIconSlot {
+                    SortGroupMenu(
+                        preferences = state.preferences,
+                        onSort = viewModel::setSort,
+                        onGroup = viewModel::setGrouping,
+                    )
+                }
+            }
+        }
+    }
     }
 }
 

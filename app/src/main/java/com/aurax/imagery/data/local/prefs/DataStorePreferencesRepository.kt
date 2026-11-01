@@ -67,6 +67,16 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[GLASS_PRESETS] = encoded }
     }
 
+    override val videoScreenMode: Flow<String?> = safeData.map { it[VIDEO_SCREEN_MODE] }
+    override val videoAspectPreset: Flow<String?> = safeData.map { it[VIDEO_ASPECT_PRESET] }
+
+    override suspend fun setVideoDisplay(screenMode: String, aspectPreset: String) {
+        store.edit {
+            it[VIDEO_SCREEN_MODE] = screenMode
+            it[VIDEO_ASPECT_PRESET] = aspectPreset
+        }
+    }
+
     private inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
         this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
 
@@ -76,5 +86,7 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val GROUPING = stringPreferencesKey("grouping")
         val GLASS_STYLE = stringPreferencesKey("glass_style")
         val GLASS_PRESETS = stringPreferencesKey("glass_presets")
+        val VIDEO_SCREEN_MODE = stringPreferencesKey("video_screen_mode")
+        val VIDEO_ASPECT_PRESET = stringPreferencesKey("video_aspect_preset")
     }
 }

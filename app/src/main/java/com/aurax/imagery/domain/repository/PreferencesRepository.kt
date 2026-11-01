@@ -17,4 +17,9 @@ interface PreferencesRepository {
     /** Saved custom presets, one per line. */
     val glassPresets: Flow<String?>
     suspend fun setGlassPresets(encoded: String)
+
+    /** Last screen mode / aspect preset chosen in the video player (enum names; null = never set). */
+    val videoScreenMode: Flow<String?>
+    val videoAspectPreset: Flow<String?>
+    suspend fun setVideoDisplay(screenMode: String, aspectPreset: String)
 }
