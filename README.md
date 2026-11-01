@@ -11,7 +11,7 @@ A premium, offline-first Android gallery with a liquid-glass interface on a true
 
 ## Status
 
-Phases 1-4 of 7 are written. Phases 1-3 compile and pass their unit tests in CI. **Nothing has been run on a device yet.**
+Phases 1-5 of 7 are written. Phases 1-3 compile and pass their unit tests in CI. **Nothing has been run on a device yet.**
 The environment used for development has no Android SDK, so builds and unit tests run in GitHub Actions.
 
 | Phase | Scope | State |
@@ -19,8 +19,8 @@ The environment used for development has no Android SDK, so builds and unit test
 | 1 | Project setup, architecture, theme, floating glass navigation | Builds in CI |
 | 2 | MediaStore integration, permissions, background indexing | Builds in CI; untested on a device |
 | 3 | Home timeline, albums, favorites | Builds in CI; untested on a device. Custom (user-created) albums not done yet |
-| 4 | Full-screen viewer, video player | Written; awaiting first CI build. Edit is an interim hand-off to another app until the Phase 5 editor; delete moves to the system trash (system confirmation) |
-| 5 | Photo editor, search | Not started |
+| 4 | Full-screen viewer, video player | Written; awaiting first CI build. Edit opens the in-app editor (Phase 5); delete moves to the system trash (system confirmation) |
+| 5 | Photo editor, search | Written; awaiting first CI build. Editor always saves a new copy (Pictures/AuraX Imagery) and never overwrites the original; EXIF is not copied to the copy. Search matches file name, album, month/year, type on the local index |
 | 6 | Liquid Glass renderer, Glass Studio | Not started |
 | 7 | Settings, privacy, optimization, testing | Not started |
 

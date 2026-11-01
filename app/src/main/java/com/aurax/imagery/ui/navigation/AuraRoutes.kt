@@ -13,6 +13,9 @@ object AuraRoutes {
     const val VIEWER_PREFIX = "viewer/"
     const val VIEWER_PATTERN = "viewer/{kind}/{albumId}/{mediaId}"
 
+    const val EDITOR_PREFIX = "editor/"
+    const val EDITOR_PATTERN = "editor/{mediaId}"
+
     const val ARG_KIND = "kind"
     const val ARG_ID = "id"
     const val ARG_NAME = "name"
@@ -55,5 +58,12 @@ object AuraRoutes {
 
     fun isAlbumDetail(route: String?): Boolean = route?.startsWith(ALBUM_PREFIX) == true
 
+    fun editor(mediaId: Long): String = "editor/$mediaId"
+
     fun isViewer(route: String?): Boolean = route?.startsWith(VIEWER_PREFIX) == true
+
+    fun isEditor(route: String?): Boolean = route?.startsWith(EDITOR_PREFIX) == true
+
+    /** Full-screen destinations draw their own chrome, so the floating tab bar is hidden there. */
+    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route)
 }

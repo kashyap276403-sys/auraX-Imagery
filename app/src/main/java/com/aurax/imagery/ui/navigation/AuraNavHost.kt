@@ -13,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.aurax.imagery.ui.albums.AlbumDetailScreen
 import com.aurax.imagery.ui.albums.AlbumsScreen
+import com.aurax.imagery.ui.editor.EditorScreen
 import com.aurax.imagery.ui.favorites.FavoritesScreen
 import com.aurax.imagery.ui.gallery.MediaSource
 import com.aurax.imagery.ui.home.HomeScreen
@@ -46,7 +47,7 @@ fun AuraNavHost(
         composable(AuraDestination.Albums.route) {
             AlbumsScreen(onOpenAlbum = { album -> navController.navigate(AuraRoutes.album(album)) })
         }
-        composable(AuraDestination.Search.route) { SearchScreen() }
+        composable(AuraDestination.Search.route) { SearchScreen(onOpenViewer = openViewer) }
         composable(AuraDestination.Favorites.route) { FavoritesScreen(onOpenViewer = openViewer) }
         composable(AuraDestination.Settings.route) { SettingsScreen() }
 
@@ -88,6 +89,17 @@ fun AuraNavHost(
                     albumId = args?.getLong(AuraRoutes.ARG_ALBUM_ID) ?: 0L,
                 ),
                 startMediaId = args?.getLong(AuraRoutes.ARG_MEDIA_ID) ?: 0L,
+                onClose = { navController.popBackStack() },
+                onEdit = { mediaId -> navController.navigate(AuraRoutes.editor(mediaId)) },
+            )
+        }
+
+        composable(
+            route = AuraRoutes.EDITOR_PATTERN,
+            arguments = listOf(navArgument(AuraRoutes.ARG_MEDIA_ID) { type = NavType.LongType }),
+        ) { entry ->
+            EditorScreen(
+                mediaId = entry.arguments?.getLong(AuraRoutes.ARG_MEDIA_ID) ?: 0L,
                 onClose = { navController.popBackStack() },
             )
         }

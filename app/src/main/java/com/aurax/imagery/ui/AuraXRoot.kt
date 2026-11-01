@@ -33,7 +33,7 @@ fun AuraXRoot() {
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val inAlbumDetail = AuraRoutes.isAlbumDetail(currentRoute)
-    val inViewer = AuraRoutes.isViewer(currentRoute)
+    val hideBar = AuraRoutes.hidesBottomBar(currentRoute)
     val navItems = remember {
         AuraDestination.entries.map { GlassNavItem(it.route, it.label, it.icon) }
     }
@@ -43,9 +43,9 @@ fun AuraXRoot() {
         CompositionLocalProvider(LocalFloatingBarInset provides 108.dp) {
             AuraNavHost(navController = navController, modifier = Modifier.fillMaxSize())
         }
-        // The viewer is full-screen and immersive, so the tab bar slides away while it is open.
+        // The viewer and editor are full-screen, so the tab bar slides away while they are open.
         AnimatedVisibility(
-            visible = !inViewer,
+            visible = !hideBar,
             enter = fadeIn() + slideInVertically { it },
             exit = fadeOut() + slideOutVertically { it },
             modifier = Modifier.align(Alignment.BottomCenter),

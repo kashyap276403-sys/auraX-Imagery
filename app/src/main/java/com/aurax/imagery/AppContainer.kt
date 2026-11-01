@@ -13,6 +13,7 @@ import com.aurax.imagery.domain.usecase.BuildTimelineUseCase
 import com.aurax.imagery.domain.usecase.ObserveAlbumMediaUseCase
 import com.aurax.imagery.domain.usecase.ObserveAlbumsUseCase
 import com.aurax.imagery.domain.usecase.ObserveMediaUseCase
+import com.aurax.imagery.domain.usecase.SearchMediaUseCase
 import com.aurax.imagery.domain.usecase.SetFavoritesUseCase
 
 /**
@@ -20,7 +21,7 @@ import com.aurax.imagery.domain.usecase.SetFavoritesUseCase
  * not open the database or touch WorkManager until something needs it.
  */
 class AppContainer(context: Context) {
-    private val appContext = context.applicationContext
+    val appContext: Context = context.applicationContext
 
     private val database: AuraDatabase by lazy { AuraDatabase.create(appContext) }
 
@@ -32,6 +33,7 @@ class AppContainer(context: Context) {
     }
     val indexer: MediaIndexer by lazy { MediaIndexer(appContext) }
 
+    val searchMedia: SearchMediaUseCase by lazy { SearchMediaUseCase() }
     val observeMedia: ObserveMediaUseCase by lazy { ObserveMediaUseCase(mediaRepository) }
     val observeAlbums: ObserveAlbumsUseCase by lazy { ObserveAlbumsUseCase(mediaRepository) }
     val observeAlbumMedia: ObserveAlbumMediaUseCase by lazy { ObserveAlbumMediaUseCase(mediaRepository) }

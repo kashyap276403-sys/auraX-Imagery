@@ -54,7 +54,6 @@ import com.aurax.imagery.ui.components.GlassSurface
 import com.aurax.imagery.ui.components.GlassTopBar
 import com.aurax.imagery.ui.components.LoadingState
 import com.aurax.imagery.ui.gallery.MediaSource
-import com.aurax.imagery.ui.gallery.editExternally
 import com.aurax.imagery.ui.gallery.rememberTrashAction
 import com.aurax.imagery.ui.gallery.shareItems
 import kotlin.math.abs
@@ -73,6 +72,7 @@ fun ViewerScreen(
     source: MediaSource,
     startMediaId: Long,
     onClose: () -> Unit,
+    onEdit: (Long) -> Unit,
 ) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
     val viewModel: ViewerViewModel = viewModel(
@@ -92,6 +92,7 @@ fun ViewerScreen(
             initialPage = state.items.indexOfFirst { it.id == startMediaId }.coerceAtLeast(0),
             viewModel = viewModel,
             onClose = onClose,
+            onEdit = onEdit,
         )
     }
 }
@@ -102,6 +103,7 @@ private fun ViewerContent(
     initialPage: Int,
     viewModel: ViewerViewModel,
     onClose: () -> Unit,
+    onEdit: (Long) -> Unit,
 ) {
     val context = LocalContext.current
     val container = remember { (context.applicationContext as AuraXApp).container }
@@ -231,7 +233,7 @@ private fun ViewerContent(
                             Icon(Icons.Rounded.Share, contentDescription = "Share")
                         }
                         if (current.type == MediaType.Image) {
-                            IconButton(onClick = { editExternally(context, current) }) {
+                            IconButton(onClick = { onEdit(current.id) }) {
                                 Icon(Icons.Rounded.Edit, contentDescription = "Edit")
                             }
                         }
