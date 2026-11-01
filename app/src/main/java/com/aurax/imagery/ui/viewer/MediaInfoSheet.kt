@@ -67,7 +67,7 @@ private suspend fun loadExif(context: android.content.Context, uri: String): Exi
                 val fNumber = exif.getAttributeDouble(ExifInterface.TAG_F_NUMBER, -1.0)
                 val exposure = exif.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME, -1.0)
                 val focal = exif.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH, -1.0)
-                val iso = exif.getAttributeInt(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, -1)
+                val iso = exif.getAttributeInt("ISOSpeedRatings", -1) // literal key: stable across platform ExifInterface versions
                 ExifSummary(
                     camera = camera,
                     aperture = if (fNumber > 0) formatAperture(fNumber) else null,
