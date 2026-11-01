@@ -214,7 +214,7 @@ AnimatedVisibility(
                 GlassIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onClose)
                 // Details (name, date, size, camera info...) live behind this button instead of on screen.
                 if (current != null) {
-                    GlassIconButton(Icons.Rounded.Info, "Details") { showInfo = true }
+                    GlassIconButton(Icons.Rounded.Info, "Details", onClick = { showInfo = true })
                 }
             }
         }

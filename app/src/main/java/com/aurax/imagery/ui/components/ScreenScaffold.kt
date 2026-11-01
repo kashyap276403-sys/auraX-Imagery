@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,7 +45,7 @@ fun ScreenScaffold(
         GlassTopBar(
             title = title,
             subtitle = subtitle,
-            navigationIcon = if (onBack != null) androidx.compose.material.icons.Icons.AutoMirrored.Rounded.ArrowBack else null,
+            navigationIcon = if (onBack != null) Icons.AutoMirrored.Rounded.ArrowBack else null,
             navigationDescription = "Back",
             onNavigationClick = { onBack?.invoke() },
             actions = actions,
