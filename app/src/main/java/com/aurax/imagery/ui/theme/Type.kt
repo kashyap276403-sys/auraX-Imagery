@@ -18,3 +18,22 @@ val AuraTypography = Typography(
     labelMedium = Base.labelMedium.copy(letterSpacing = 0.6.sp),
     labelSmall = Base.labelSmall.copy(letterSpacing = 1.2.sp),
 )
+
+/** The app typography with every style in the user's text colour. */
+fun auraTypography(color: androidx.compose.ui.graphics.Color): Typography = AuraTypography.copy(
+    displayLarge = AuraTypography.displayLarge.copy(color = color),
+    displayMedium = AuraTypography.displayMedium.copy(color = color),
+    displaySmall = AuraTypography.displaySmall.copy(color = color),
+    headlineLarge = AuraTypography.headlineLarge.copy(color = color),
+    headlineMedium = AuraTypography.headlineMedium.copy(color = color),
+    headlineSmall = AuraTypography.headlineSmall.copy(color = color),
+    titleLarge = AuraTypography.titleLarge.copy(color = color),
+    titleMedium = AuraTypography.titleMedium.copy(color = color),
+    titleSmall = AuraTypography.titleSmall.copy(color = color),
+    bodyLarge = AuraTypography.bodyLarge.copy(color = color),
+    bodyMedium = AuraTypography.bodyMedium.copy(color = color),
+    bodySmall = AuraTypography.bodySmall.copy(color = color),
+    labelLarge = AuraTypography.labelLarge.copy(color = color),
+    labelMedium = AuraTypography.labelMedium.copy(color = color),
+    labelSmall = AuraTypography.labelSmall.copy(color = color),
+)

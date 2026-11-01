@@ -30,7 +30,9 @@ import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import com.aurax.imagery.ui.components.GlassIconButton
 import androidx.compose.runtime.CompositionLocalProvider
 import com.aurax.imagery.ui.glass.LocalHazeState
 import dev.chrisbanes.haze.hazeSource
@@ -202,14 +204,19 @@ AnimatedVisibility(
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.TopCenter),
         ) {
-            GlassTopBar(
-                title = current?.displayName.orEmpty(),
-                subtitle = "${pagerState.currentPage + 1} of ${items.size}",
-                navigationIcon = Icons.AutoMirrored.Rounded.ArrowBack,
-                navigationDescription = "Back",
-                onNavigationClick = onClose,
-                modifier = Modifier.statusBarsPadding(),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                GlassIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onClose)
+                // Details (name, date, size, camera info...) live behind this button instead of on screen.
+                if (current != null) {
+                    GlassIconButton(Icons.Rounded.Info, "Details") { showInfo = true }
+                }
+            }
         }
 }
 
@@ -239,7 +246,7 @@ AnimatedVisibility(
                             Icon(
                                 imageVector = if (current.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                 contentDescription = if (current.isFavorite) "Remove from favorites" else "Add to favorites",
-                                tint = if (current.isFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                tint = if (current.isFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                             )
                         }
                         IconButton(onClick = { shareItems(context, listOf(current)) }) {
@@ -249,9 +256,6 @@ AnimatedVisibility(
                             IconButton(onClick = { onEdit(current.id) }) {
                                 Icon(Icons.Rounded.Edit, contentDescription = "Edit")
                             }
-                        }
-                        IconButton(onClick = { showInfo = true }) {
-                            Icon(Icons.Rounded.Info, contentDescription = "Details")
                         }
                         IconButton(onClick = { trash(listOf(current)) }) {
                             Icon(Icons.Rounded.Delete, contentDescription = "Move to trash")

@@ -14,7 +14,6 @@ import androidx.navigation.navArgument
 import com.aurax.imagery.ui.albums.AlbumDetailScreen
 import com.aurax.imagery.ui.albums.AlbumsScreen
 import com.aurax.imagery.ui.editor.EditorScreen
-import com.aurax.imagery.ui.favorites.FavoritesScreen
 import com.aurax.imagery.ui.gallery.MediaSource
 import com.aurax.imagery.ui.glass.studio.GlassStudioScreen
 import com.aurax.imagery.ui.home.HomeScreen
@@ -35,6 +34,8 @@ fun AuraNavHost(
         navController.navigate(AuraRoutes.viewer(source, mediaId))
     }
 
+    val openSettings: () -> Unit = { navController.navigate(AuraRoutes.SETTINGS) }
+
     NavHost(
         navController = navController,
         startDestination = AuraDestination.Photos.route,
@@ -44,14 +45,19 @@ fun AuraNavHost(
         popEnterTransition = { fadeIn(tween(280)) + scaleIn(initialScale = 0.97f, animationSpec = tween(280)) },
         popExitTransition = { fadeOut(tween(160)) },
     ) {
-        composable(AuraDestination.Photos.route) { HomeScreen(onOpenViewer = openViewer) }
+        composable(AuraDestination.Photos.route) { HomeScreen(onOpenViewer = openViewer, onOpenSettings = openSettings) }
         composable(AuraDestination.Albums.route) {
-            AlbumsScreen(onOpenAlbum = { album -> navController.navigate(AuraRoutes.album(album)) })
+            AlbumsScreen(
+                onOpenAlbum = { album -> navController.navigate(AuraRoutes.album(album)) },
+                onOpenSettings = openSettings,
+            )
         }
-        composable(AuraDestination.Search.route) { SearchScreen(onOpenViewer = openViewer) }
-        composable(AuraDestination.Favorites.route) { FavoritesScreen(onOpenViewer = openViewer) }
-        composable(AuraDestination.Settings.route) {
-            SettingsScreen(onOpenGlassStudio = { navController.navigate(AuraRoutes.GLASS_STUDIO) })
+        composable(AuraDestination.Search.route) { SearchScreen(onOpenViewer = openViewer, onOpenSettings = openSettings) }
+        composable(AuraRoutes.SETTINGS) {
+            SettingsScreen(
+                onOpenGlassStudio = { navController.navigate(AuraRoutes.GLASS_STUDIO) },
+                onBack = { navController.popBackStack() },
+            )
         }
         composable(AuraRoutes.GLASS_STUDIO) { GlassStudioScreen(onBack = { navController.popBackStack() }) }
 

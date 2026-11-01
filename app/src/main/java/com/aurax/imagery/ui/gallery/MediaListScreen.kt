@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,7 +45,9 @@ import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortField
 import com.aurax.imagery.domain.model.SortOrder
 import com.aurax.imagery.ui.components.EmptyState
+import com.aurax.imagery.ui.components.GlassIconSlot
 import com.aurax.imagery.ui.components.GlassTopBar
+import com.aurax.imagery.ui.components.TabTopRow
 import com.aurax.imagery.ui.components.LoadingState
 import com.aurax.imagery.ui.theme.LocalGlassStyle
 
@@ -65,6 +68,7 @@ fun MediaListScreen(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
+    onOpenSettings: (() -> Unit)? = null,
     header: @Composable () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -97,7 +101,7 @@ fun MediaListScreen(
                         Icon(
                             imageVector = if (state.selectionAllFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             contentDescription = if (state.selectionAllFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (state.selectionAllFavorite) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            tint = if (state.selectionAllFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
                     IconButton(onClick = { shareItems(context, viewModel.selectedItems()) }) {
@@ -108,13 +112,14 @@ fun MediaListScreen(
                     }
                 },
             )
-        } else {
+        } else if (onBack != null) {
+            // Sub-screen (an album): keep a back button and the title.
             GlassTopBar(
                 title = title,
                 subtitle = subtitle,
-                navigationIcon = if (onBack != null) Icons.AutoMirrored.Rounded.ArrowBack else null,
+                navigationIcon = Icons.AutoMirrored.Rounded.ArrowBack,
                 navigationDescription = "Back",
-                onNavigationClick = { onBack?.invoke() },
+                onNavigationClick = onBack,
                 actions = {
                     if (state.itemCount > 0) {
                         SortGroupMenu(
@@ -125,6 +130,19 @@ fun MediaListScreen(
                     }
                 },
             )
+        } else {
+            // Main tab: no header, only small glass buttons (sort and Settings).
+            TabTopRow(onOpenSettings = onOpenSettings) {
+                if (state.itemCount > 0) {
+                    GlassIconSlot {
+                        SortGroupMenu(
+                            preferences = state.preferences,
+                            onSort = viewModel::setSort,
+                            onGroup = viewModel::setGrouping,
+                        )
+                    }
+                }
+            }
         }
 
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {

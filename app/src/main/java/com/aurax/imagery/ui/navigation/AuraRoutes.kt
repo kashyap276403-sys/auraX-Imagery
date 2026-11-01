@@ -14,6 +14,7 @@ object AuraRoutes {
     const val VIEWER_PATTERN = "viewer/{kind}/{albumId}/{mediaId}"
 
     const val GLASS_STUDIO = "glass-studio"
+    const val SETTINGS = "settings"
 
     const val EDITOR_PREFIX = "editor/"
     const val EDITOR_PATTERN = "editor/{mediaId}"
@@ -38,6 +39,9 @@ object AuraRoutes {
             AlbumRef.Videos -> "album/$KIND_VIDEOS/0?name=$name"
         }
     }
+
+    /** The Favorites collection, opened from the Albums tab. */
+    fun favorites(): String = "album/$KIND_FAVORITES/0?name=${Uri.encode("Favorites")}"
 
     fun albumRef(kind: String, id: Long): AlbumRef = when (kind) {
         KIND_FAVORITES -> AlbumRef.Favorites
@@ -67,5 +71,5 @@ object AuraRoutes {
     fun isEditor(route: String?): Boolean = route?.startsWith(EDITOR_PREFIX) == true
 
     /** Full-screen destinations draw their own chrome, so the floating tab bar is hidden there. */
-    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route) || route == GLASS_STUDIO
+    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route) || route == GLASS_STUDIO || route == SETTINGS
 }

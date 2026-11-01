@@ -26,8 +26,8 @@ fun AuraXTheme(
     glassStyle: GlassStyle = GlassStyle.Natural,
     content: @Composable () -> Unit,
 ) {
-    // The user's text colour drives every text and icon colour. LocalContentColor is set too,
-    // because plain Text outside a Surface would otherwise fall back to black on black.
+    // Text colour and icon colour are separate settings. LocalContentColor is always set, because
+    // plain Text/Icon outside a Surface would otherwise fall back to black on black.
     val text = glassStyle.textColor
     val colorScheme = AuraColorScheme.copy(
         onBackground = text,
@@ -36,11 +36,12 @@ fun AuraXTheme(
     )
     CompositionLocalProvider(
         LocalGlassStyle provides glassStyle,
-        LocalContentColor provides text,
+        // Text takes its colour from the typography; LocalContentColor is what icons default to.
+        LocalContentColor provides glassStyle.iconColor,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = AuraTypography,
+            typography = auraTypography(text),
             content = content,
         )
     }

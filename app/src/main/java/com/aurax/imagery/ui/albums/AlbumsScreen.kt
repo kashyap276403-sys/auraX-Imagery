@@ -26,6 +26,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,7 +44,7 @@ import com.aurax.imagery.domain.model.AlbumRef
 import com.aurax.imagery.ui.components.EmptyState
 import com.aurax.imagery.ui.components.LoadingState
 import com.aurax.imagery.ui.components.LocalFloatingBarInset
-import com.aurax.imagery.ui.components.ScreenScaffold
+import com.aurax.imagery.ui.components.TabScaffold
 import com.aurax.imagery.ui.permissions.MediaAccessPrompt
 import com.aurax.imagery.ui.permissions.rememberMediaAccessState
 import com.aurax.imagery.utils.MediaAccess
@@ -53,24 +54,23 @@ import com.aurax.imagery.utils.MediaAccess
  * MediaStore (Camera, Screenshots, Download, WhatsApp media where accessible, ...).
  */
 @Composable
-fun AlbumsScreen(onOpenAlbum: (Album) -> Unit) {
+fun AlbumsScreen(onOpenAlbum: (Album) -> Unit, onOpenSettings: () -> Unit) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
     val access = rememberMediaAccessState(onAccessChanged = { container.indexer.enqueue() })
 
-    ScreenScaffold(title = "Albums") {
+    TabScaffold(onOpenSettings = onOpenSettings) {
         if (access.access == MediaAccess.None) {
             MediaAccessPrompt(access)
         } else {
             val viewModel: AlbumsViewModel = viewModel(factory = AlbumsViewModel.factory(container))
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            // Favorites is always reachable from here, even before the first heart is tapped.
+            val albums = remember(state.albums) {
+                if (state.albums.any { it.ref == AlbumRef.Favorites }) state.albums
+                else listOf(Album(AlbumRef.Favorites, "Favorites", null, 0)) + state.albums
+            }
             when {
                 !state.hasLoaded -> LoadingState()
-
-                state.albums.isEmpty() -> EmptyState(
-                    icon = Icons.Rounded.PhotoAlbum,
-                    title = "No albums yet",
-                    message = "Camera, Screenshots, Downloads and other folders with photos or videos will be listed here.",
-                )
 
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
@@ -84,7 +84,7 @@ fun AlbumsScreen(onOpenAlbum: (Album) -> Unit) {
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
-                    items(items = state.albums, key = { it.ref.toString() }) { album ->
+                    items(items = albums, key = { it.ref.toString() }) { album ->
                         AlbumTile(album = album, onClick = { onOpenAlbum(album) })
                     }
                 }
@@ -114,7 +114,7 @@ private fun AlbumTile(album: Album, onClick: () -> Unit) {
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Rounded.PhotoAlbum,
+                    imageVector = if (album.ref == AlbumRef.Favorites) Icons.Rounded.Favorite else Icons.Rounded.PhotoAlbum,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center).size(40.dp),

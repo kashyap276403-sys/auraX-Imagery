@@ -45,6 +45,8 @@ data class GlassStyle(
     val animationSpeed: Float = 1f,
     /** Colour of all primary text and icons in the app. */
     val textColor: Color = AuraTextPrimary,
+    /** Colour of icons, independent of the text colour. */
+    val iconColor: Color = AuraTextPrimary,
     /** Opacity of secondary text (captions, hints) relative to [textColor], 0.3..1. */
     val secondaryTextOpacity: Float = 0.72f,
     val haptics: Boolean = true,

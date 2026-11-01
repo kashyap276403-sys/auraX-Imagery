@@ -120,8 +120,11 @@ fun LiquidNavCapsule(
     val baseShape = RoundedCornerShape(50)
     val lensStyle = remember(style) {
         style.copy(
-            blur = style.blur * 0.4f,
-            opacity = (style.opacity * 0.45f).coerceIn(0.02f, 0.2f),
+            // A clear window: barely any blur or fill, and the shader does the visible work.
+            blur = (style.blur * 0.2f).coerceAtMost(0.15f),
+            opacity = (style.opacity * 0.25f).coerceIn(0.0f, 0.08f),
+            distortion = style.distortion.coerceAtLeast(0.55f),
+            edgeBrightness = style.edgeBrightness.coerceAtLeast(0.7f),
             cornerRadius = 100.dp,
         )
     }
@@ -154,13 +157,13 @@ fun LiquidNavCapsule(
                 .let { m ->
                     if (hazeState != null) {
                         m.hazeEffect(state = hazeState) {
-                            blurRadius = 28.dp
+                            blurRadius = 22.dp
                             noiseFactor = if (style.performanceMode) 0f else 0.03f
-                            tints = listOf(HazeTint(Color(0xFF020203).copy(alpha = 0.88f)))
+                            tints = listOf(HazeTint(Color(0xFF020203).copy(alpha = 0.62f)))
                             backgroundColor = Color.Black
                         }
                     } else {
-                        m.background(Color(0xE0030304))
+                        m.background(Color(0xB0030304))
                     }
                 }
                 .border(1.dp, baseRim, baseShape),
@@ -244,7 +247,7 @@ fun LiquidNavCapsule(
                     Icon(
                         imageVector = item.icon,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurface,
+                        tint = androidx.compose.material3.LocalContentColor.current,
                         modifier = Modifier.height(24.dp),
                     )
                     Text(text = item.label, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, maxLines = 1)

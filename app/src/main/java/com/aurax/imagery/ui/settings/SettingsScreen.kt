@@ -54,7 +54,7 @@ import kotlinx.coroutines.withContext
  * cache, the manifest) or performs a real action.
  */
 @Composable
-fun SettingsScreen(onOpenGlassStudio: () -> Unit) {
+fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val container = remember { (context.applicationContext as AuraXApp).container }
     val scope = rememberCoroutineScope()
@@ -71,7 +71,7 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit) {
     var confirmClearFavorites by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { cacheBytes = thumbnailCacheBytes(context) }
 
-    ScreenScaffold(title = "Settings") {
+    ScreenScaffold(title = "Settings", onBack = onBack) {
         Column(
             modifier = Modifier
                 .verticalScroll(rememberScrollState())

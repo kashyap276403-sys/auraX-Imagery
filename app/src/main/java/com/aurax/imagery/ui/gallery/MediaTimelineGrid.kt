@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +39,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.video.videoFramePercent
 import com.aurax.imagery.domain.model.MediaItem
 import com.aurax.imagery.domain.model.MediaType
 import com.aurax.imagery.domain.model.TimelineSection
@@ -163,7 +166,7 @@ private fun MediaThumbnail(
                 .clip(RoundedCornerShape(if (selected) 10.dp else 0.dp)),
         ) {
             AsyncImage(
-                model = item.uri,
+                model = thumbnailRequest(item),
                 contentDescription = item.displayName,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -193,5 +196,17 @@ private fun MediaThumbnail(
                     .size(22.dp),
             )
         }
+    }
+}
+
+/** Videos often open on a black frame, so their thumbnail is taken a little way in. */
+@Composable
+private fun thumbnailRequest(item: MediaItem): ImageRequest {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return remember(item.uri, item.type) {
+        ImageRequest.Builder(context)
+            .data(item.uri)
+            .apply { if (item.type == MediaType.Video) videoFramePercent(0.15) }
+            .build()
     }
 }

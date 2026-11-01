@@ -35,11 +35,19 @@ fun ScreenScaffold(
     title: String,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
+    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable BoxScope.() -> Unit,
 ) {
     Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
-        GlassTopBar(title = title, subtitle = subtitle, actions = actions)
+        GlassTopBar(
+            title = title,
+            subtitle = subtitle,
+            navigationIcon = if (onBack != null) androidx.compose.material.icons.Icons.AutoMirrored.Rounded.ArrowBack else null,
+            navigationDescription = "Back",
+            onNavigationClick = { onBack?.invoke() },
+            actions = actions,
+        )
         Box(modifier = Modifier.weight(1f).fillMaxWidth(), content = content)
     }
 }

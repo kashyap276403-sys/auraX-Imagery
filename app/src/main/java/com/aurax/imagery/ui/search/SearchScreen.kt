@@ -37,7 +37,7 @@ import com.aurax.imagery.AuraXApp
 import com.aurax.imagery.domain.usecase.SearchType
 import com.aurax.imagery.ui.components.EmptyState
 import com.aurax.imagery.ui.components.GlassSurface
-import com.aurax.imagery.ui.components.ScreenScaffold
+import com.aurax.imagery.ui.components.TabScaffold
 import com.aurax.imagery.ui.gallery.MediaSource
 import com.aurax.imagery.ui.gallery.MediaTimelineGrid
 
@@ -46,13 +46,13 @@ import com.aurax.imagery.ui.gallery.MediaTimelineGrid
  * grid used elsewhere. Everything is matched on-device against the local index.
  */
 @Composable
-fun SearchScreen(onOpenViewer: (MediaSource, Long) -> Unit) {
+fun SearchScreen(onOpenViewer: (MediaSource, Long) -> Unit, onOpenSettings: () -> Unit) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
     val viewModel: SearchViewModel = viewModel(key = "search", factory = SearchViewModel.factory(container))
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val focus = LocalFocusManager.current
 
-    ScreenScaffold(title = "Search") {
+    TabScaffold(onOpenSettings = onOpenSettings) {
         Column(modifier = Modifier.fillMaxSize()) {
             GlassSurface(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),

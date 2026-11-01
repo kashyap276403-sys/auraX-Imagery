@@ -13,6 +13,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -204,45 +205,12 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                 }
             }
 
-            GlassCard {
-                SectionTitle("Text colour")
-                Text(
-                    text = "Colour of all text and icons in the app. Pick one that stays readable on your photos.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 10.dp),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-                    TextSwatches.forEach { (name, color) ->
-                        TintSwatch(
-                            name = name,
-                            color = color,
-                            selected = style.textColor == color,
-                            onClick = { settings.update { it.copy(textColor = color) } },
-                        )
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                val hsv = remember(style.textColor) {
-                    FloatArray(3).also { android.graphics.Color.colorToHSV(style.textColor.toArgb(), it) }
-                }
-                GlassSlider(
-                    label = "Custom hue",
-                    value = hsv[0],
-                    onValueChange = { h -> settings.update { it.copy(textColor = Color.hsv(h, hsv[1].coerceAtLeast(0.01f), hsv[2].coerceAtLeast(0.6f))) } },
-                    valueRange = 0f..360f,
-                    valueLabel = "${hsv[0].toInt()}°",
-                )
-                GlassSlider(
-                    label = "Colour strength",
-                    value = hsv[1],
-                    onValueChange = { sat -> settings.update { it.copy(textColor = Color.hsv(hsv[0], sat, hsv[2].coerceAtLeast(0.6f))) } },
-                )
-                GlassSlider(
-                    label = "Brightness",
-                    value = hsv[2],
-                    onValueChange = { v -> settings.update { it.copy(textColor = Color.hsv(hsv[0], hsv[1], v.coerceAtLeast(0.1f))) } },
-                )
+            ColorCard(
+                title = "Text colour",
+                hint = "Colour of all text in the app. Pick one that stays readable on your photos.",
+                color = style.textColor,
+                onColor = { c -> settings.update { it.copy(textColor = c) } },
+            ) {
                 GlassSlider(
                     label = "Secondary text visibility",
                     value = style.secondaryTextOpacity,
@@ -251,6 +219,20 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                 )
                 Text("Sample heading", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 6.dp))
                 Text("Sample caption text", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            ColorCard(
+                title = "Icon colour",
+                hint = "Colour of all icons, set separately from text.",
+                color = style.iconColor,
+                onColor = { c -> settings.update { it.copy(iconColor = c) } },
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.padding(top = 6.dp)) {
+                    Icon(Icons.Rounded.Favorite, contentDescription = null)
+                    Icon(Icons.Rounded.Search, contentDescription = null)
+                    Icon(Icons.Rounded.PhotoAlbum, contentDescription = null)
+                    Icon(Icons.Rounded.Settings, contentDescription = null)
+                }
             }
 
             GlassCard {
@@ -479,5 +461,51 @@ private fun TestCard(animate: Boolean) {
             fontWeight = FontWeight.Bold,
             modifier = Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 14.dp),
         )
+    }
+}
+
+
+/** Swatches plus hue / strength / brightness sliders for one colour setting. */
+@Composable
+private fun ColorCard(
+    title: String,
+    hint: String,
+    color: Color,
+    onColor: (Color) -> Unit,
+    extra: @Composable ColumnScope.() -> Unit = {},
+) {
+    GlassCard {
+        SectionTitle(title)
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 10.dp),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            TextSwatches.forEach { (name, swatch) ->
+                TintSwatch(name = name, color = swatch, selected = color == swatch, onClick = { onColor(swatch) })
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        val hsv = remember(color) { FloatArray(3).also { android.graphics.Color.colorToHSV(color.toArgb(), it) } }
+        GlassSlider(
+            label = "Custom hue",
+            value = hsv[0],
+            onValueChange = { h -> onColor(Color.hsv(h, hsv[1].coerceAtLeast(0.01f), hsv[2].coerceAtLeast(0.6f))) },
+            valueRange = 0f..360f,
+            valueLabel = "${hsv[0].toInt()}\u00B0",
+        )
+        GlassSlider(
+            label = "Colour strength",
+            value = hsv[1],
+            onValueChange = { sat -> onColor(Color.hsv(hsv[0], sat, hsv[2].coerceAtLeast(0.6f))) },
+        )
+        GlassSlider(
+            label = "Brightness",
+            value = hsv[2],
+            onValueChange = { v -> onColor(Color.hsv(hsv[0], hsv[1], v.coerceAtLeast(0.1f))) },
+        )
+        extra()
     }
 }
