@@ -59,6 +59,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aurax.imagery.AuraXApp
 import com.aurax.imagery.domain.model.MediaItem
 import com.aurax.imagery.domain.model.MediaType
+import com.aurax.imagery.domain.player.OrientationLock
 import com.aurax.imagery.ui.components.GlassSurface
 import com.aurax.imagery.ui.components.GlassTopBar
 import com.aurax.imagery.ui.components.LoadingState
@@ -122,7 +123,8 @@ private fun ViewerContent(
     var chromeVisible by remember { mutableStateOf(true) }
     var zoomed by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
-    var landscape by remember { mutableStateOf(false) }
+    var orientationLock by remember { mutableStateOf(OrientationLock.Auto) }
+    val landscape = orientationLock == OrientationLock.Landscape
     var videoPlaying by remember { mutableStateOf(false) }
     var videoBusy by remember { mutableStateOf(false) }
     var interactionTick by remember { mutableIntStateOf(0) }
@@ -132,7 +134,8 @@ private fun ViewerContent(
     val dragProgress = (abs(dragY.value) / (dismissDistance * 3f)).coerceIn(0f, 1f)
 
     ImmersiveEffect(hideSystemBars = !chromeVisible)
-    LandscapeEffect(landscape)
+    OrientationLockEffect(orientationLock)
+    BrightnessRestoreEffect()
 
     val trash = rememberTrashAction { trashed ->
         // Hide at once; the index catches up after the background refresh.
@@ -203,7 +206,11 @@ private fun ViewerContent(
                     isLandscape = landscape || orientationLandscape,
                     actionBarVisible = actionBarAllowed,
                     onToggleControls = { chromeVisible = !chromeVisible },
-                    onToggleFullscreen = { landscape = !landscape },
+                    onToggleFullscreen = {
+                        orientationLock = if (orientationLock == OrientationLock.Landscape) OrientationLock.Auto else OrientationLock.Landscape
+                    },
+                    orientationLock = orientationLock,
+                    onCycleOrientation = { orientationLock = orientationLock.next() },
                     onClose = onClose,
                     onShowDetails = { showInfo = true },
                     onPlayingChanged = { videoPlaying = it },

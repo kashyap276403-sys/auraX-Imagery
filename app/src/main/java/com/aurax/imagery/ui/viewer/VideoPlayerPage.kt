@@ -1,11 +1,40 @@
 package com.aurax.imagery.ui.viewer
 
+import android.content.Context
+import android.media.AudioManager
+import android.provider.Settings
 import android.view.TextureView
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
+import androidx.compose.foundation.gestures.verticalDrag
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.rounded.BrightnessMedium
+import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.VolumeOff
+import androidx.compose.material.icons.rounded.VolumeUp
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.positionChanged
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.media3.common.PlaybackParameters
+import com.aurax.imagery.domain.player.OrientationLock
+import com.aurax.imagery.domain.player.TapZone
+import com.aurax.imagery.domain.player.VideoGestureSettings
+import com.aurax.imagery.domain.player.adjustLevel
+import com.aurax.imagery.domain.player.isLeftHalf
+import com.aurax.imagery.domain.player.seekTarget
+import com.aurax.imagery.domain.player.speedLabel
+import com.aurax.imagery.domain.player.tapZone
+import kotlin.math.roundToInt
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -120,6 +149,8 @@ fun VideoPlayerPage(
     onBusyChanged: (Boolean) -> Unit,
     onInteraction: () -> Unit,
     onZoomChanged: (Boolean) -> Unit,
+    orientationLock: OrientationLock,
+    onCycleOrientation: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -144,6 +175,27 @@ fun VideoPlayerPage(
     var panY by remember(item.id) { mutableFloatStateOf(0f) }
     var showRatioSheet by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
+    var showSpeedSheet by remember { mutableStateOf(false) }
+    var speed by remember(item.id) { mutableFloatStateOf(1f) }
+    var indicator by remember { mutableStateOf<LevelIndicator?>(null) }
+    var indicatorTick by remember { mutableIntStateOf(0) }
+    var seekFlash by remember { mutableStateOf<TapZone?>(null) }
+    var flashTick by remember { mutableIntStateOf(0) }
+    val gestures by container.preferences.videoGestures
+        .collectAsStateWithLifecycle(initialValue = VideoGestureSettings())
+    LaunchedEffect(indicatorTick) {
+        if (indicator != null) {
+            delay(900L)
+            indicator = null
+        }
+    }
+    LaunchedEffect(flashTick) {
+        if (seekFlash != null) {
+            delay(650L)
+            seekFlash = null
+        }
+    }
+    LaunchedEffect(player, speed) { player?.setPlaybackParameters(PlaybackParameters(speed)) }
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         container.preferences.videoScreenMode.first()
@@ -159,7 +211,9 @@ fun VideoPlayerPage(
         scope.launch { container.preferences.setVideoDisplay(mode.name, newPreset.name) }
     }
     LaunchedEffect(zoom) { onZoomChanged(zoom > 1.001f) }
-    LaunchedEffect(showRatioSheet, showMenu, dragging) { onBusyChanged(showRatioSheet || showMenu || dragging) }
+    LaunchedEffect(showRatioSheet, showSpeedSheet, showMenu, dragging) {
+        onBusyChanged(showRatioSheet || showSpeedSheet || showMenu || dragging)
+    }
     LaunchedEffect(isPlaying, isCurrentPage) { if (isCurrentPage) onPlayingChanged(isPlaying) }
 
     // Create the player when this page becomes the visible one; release it when it stops being so.
@@ -243,8 +297,7 @@ fun VideoPlayerPage(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
-            .clipToBounds()
-            .pointerInput(Unit) { detectTapGestures(onTap = { onToggleControls() }) },
+            .clipToBounds(),
         contentAlignment = Alignment.Center,
     ) {
         val containerW = constraints.maxWidth.toFloat()
@@ -253,6 +306,99 @@ fun VideoPlayerPage(
         val frame = computeFrame(containerW, containerH, videoW, videoH, screenMode, ratio)
         val frameWDp = with(density) { frame.width.toDp() }
         val frameHDp = with(density) { frame.height.toDp() }
+
+
+        // Gesture layer under the picture and the controls: taps, double-taps, swipes, pinch.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+            .pointerInput(gestures.doubleTapSeek) {
+                detectTapGestures(
+                    onTap = { onToggleControls() },
+                    onDoubleTap = { offset ->
+                        val zone = tapZone(offset.x, size.width.toFloat())
+                        val active = player
+                        if (gestures.doubleTapSeek && zone != TapZone.Center && active != null) {
+                            val delta = if (zone == TapZone.Right) SEEK_STEP_MS else -SEEK_STEP_MS
+                            active.seekTo(seekTarget(active.currentPosition, delta, durationMs))
+                            ended = false
+                            seekFlash = zone
+                            flashTick++
+                            onInteraction()
+                        } else if (zoom > 1f) {
+                            zoom = 1f
+                            panX = 0f
+                            panY = 0f
+                        }
+                    },
+                )
+            }
+            // Left half: brightness. Right half: volume. A half whose gesture is off is left alone,
+            // so swiping down there still closes the video.
+            .pointerInput(gestures.brightness, gestures.volume) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val width = size.width.toFloat()
+                    val left = isLeftHalf(down.position.x, width)
+                    if (if (left) !gestures.brightness else !gestures.volume) return@awaitEachGesture
+                    val extent = size.height * 0.7f
+                    val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                    var level = if (left) currentBrightness(context) else audio.getStreamVolume(AudioManager.STREAM_MUSIC) / maxVolume.toFloat()
+                    fun move(dy: Float) {
+                        level = adjustLevel(level, dy, extent)
+                        if (left) {
+                            setBrightness(context, level)
+                            indicator = LevelIndicator(LevelKind.Brightness, level)
+                        } else {
+                            audio.setStreamVolume(AudioManager.STREAM_MUSIC, (level * maxVolume).roundToInt(), 0)
+                            indicator = LevelIndicator(LevelKind.Volume, level)
+                        }
+                        indicatorTick++
+                    }
+                    val first = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
+                        change.consume()
+                        move(over)
+                    }
+                    if (first != null) {
+                        verticalDrag(first.id) { change ->
+                            move(change.positionChange().y)
+                            change.consume()
+                        }
+                    }
+                }
+            }
+            // Two fingers pinch-zoom and pan; one finger pans only while already zoomed.
+            .pointerInput(containerW, containerH, frame) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var active = false
+                    do {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.count { it.pressed }
+                        val pinching = pressed >= 2
+                        if (pinching || (pressed == 1 && zoom > 1f)) {
+                            val factor = if (pinching) event.calculateZoom() else 1f
+                            val pan = event.calculatePan()
+                            if (factor != 1f || pan != Offset.Zero) {
+                                zoom = (zoom * factor).clampZoom()
+                                if (zoom <= 1f) {
+                                    panX = 0f
+                                    panY = 0f
+                                } else {
+                                    panX = clampPan(panX + pan.x, frame.width, containerW, zoom)
+                                    panY = clampPan(panY + pan.y, frame.height, containerH, zoom)
+                                }
+                                active = true
+                                dragging = true
+                                event.changes.forEach { if (it.positionChanged()) it.consume() }
+                            }
+                        }
+                    } while (event.changes.any { it.pressed })
+                    if (active) dragging = false
+                }
+            }
+        )
 
         // The picture frame. Pan is clamped so zooming never opens a gap; drag moves it while zoomed.
         Box(
@@ -264,19 +410,6 @@ fun VideoPlayerPage(
                     translationX = panX
                     translationY = panY
                 }
-                .pointerInput(zoom > 1f, frame, containerW, containerH) {
-                    if (zoom > 1f) {
-                        detectDragGestures(
-                            onDragStart = { dragging = true },
-                            onDragEnd = { dragging = false },
-                            onDragCancel = { dragging = false },
-                        ) { change, amount ->
-                            change.consume()
-                            panX = clampPan(panX + amount.x, frame.width, containerW, zoom)
-                            panY = clampPan(panY + amount.y, frame.height, containerH, zoom)
-                        }
-                    }
-                },
         ) {
             // Poster frame until the first video frame is on screen.
             if (!firstFrameShown) {
@@ -307,6 +440,22 @@ fun VideoPlayerPage(
 
         val active = player
         val ready = active != null && !failed
+
+        // Brightness / volume level and double-tap seek feedback.
+        indicator?.let { LevelPill(it, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp)) }
+        seekFlash?.let { zone ->
+            Text(
+                text = if (zone == TapZone.Right) "+10s" else "-10s",
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier
+                    .align(if (zone == TapZone.Right) Alignment.CenterEnd else Alignment.CenterStart)
+                    .padding(horizontal = 40.dp)
+                    .clip(CircleShape)
+                    .background(ScrimColor)
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+            )
+        }
 
         // Top bar: back, title, details, more.
         AnimatedVisibility(
@@ -348,6 +497,22 @@ fun VideoPlayerPage(
                             onClick = {
                                 showMenu = false
                                 showRatioSheet = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Playback speed · ${speedLabel(speed)}") },
+                            leadingIcon = { Icon(Icons.Rounded.Speed, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showSpeedSheet = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Rotation · ${orientationLock.label}") },
+                            leadingIcon = { Icon(Icons.Rounded.ScreenRotation, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                onCycleOrientation()
                             },
                         )
                         DropdownMenuItem(
@@ -443,6 +608,17 @@ fun VideoPlayerPage(
         }
     }
 
+    if (showSpeedSheet) {
+        PlaybackSpeedSheet(
+            speed = speed,
+            onSpeed = {
+                speed = it
+                onInteraction()
+            },
+            onDismiss = { showSpeedSheet = false },
+        )
+    }
+
     if (showRatioSheet) {
         ScreenRatioSheet(
             mode = screenMode,
@@ -460,6 +636,49 @@ fun VideoPlayerPage(
             onDismiss = { showRatioSheet = false },
         )
     }
+}
+
+private enum class LevelKind { Brightness, Volume }
+
+private data class LevelIndicator(val kind: LevelKind, val level: Float)
+
+@Composable
+private fun LevelPill(indicator: LevelIndicator, modifier: Modifier = Modifier) {
+    val icon = when {
+        indicator.kind == LevelKind.Brightness -> Icons.Rounded.BrightnessMedium
+        indicator.level <= 0f -> Icons.Rounded.VolumeOff
+        else -> Icons.Rounded.VolumeUp
+    }
+    Row(
+        modifier = modifier
+            .clip(CircleShape)
+            .background(ScrimColor)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(icon, contentDescription = if (indicator.kind == LevelKind.Brightness) "Brightness" else "Volume", tint = Color.White, modifier = Modifier.size(20.dp))
+        Box(Modifier.width(110.dp).height(3.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))) {
+            Box(Modifier.fillMaxWidth(indicator.level).fillMaxHeight().background(Color.White))
+        }
+        Text("${(indicator.level * 100).roundToInt()}%", color = Color.White, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+/** Brightness the window is showing now, as 0..1 (falls back to the system setting). */
+private fun currentBrightness(context: Context): Float {
+    val window = context.findActivity()?.window
+    val own = window?.attributes?.screenBrightness ?: -1f
+    if (own >= 0f) return own
+    val system = runCatching { Settings.System.getInt(context.contentResolver, Settings.System.SCREEN_BRIGHTNESS) }
+        .getOrDefault(128)
+    return (system / 255f).coerceIn(0.01f, 1f)
+}
+
+/** Window-only brightness override; the viewer restores the previous value when it closes. */
+private fun setBrightness(context: Context, level: Float) {
+    val window = context.findActivity()?.window ?: return
+    window.attributes = window.attributes.also { it.screenBrightness = level.coerceIn(0.01f, 1f) }
 }
 
 @Composable

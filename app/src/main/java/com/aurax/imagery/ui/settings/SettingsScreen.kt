@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import com.aurax.imagery.domain.player.VideoGestureSettings
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -102,6 +103,22 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                     glass.update { it.copy(haptics = on) }
                 }
                 Body("If scrolling stutters on this phone, turn Performance mode on.")
+            }
+
+            GlassCard {
+                Heading("Video player")
+                val gestures by container.preferences.videoGestures
+                    .collectAsStateWithLifecycle(initialValue = VideoGestureSettings())
+                SwitchRow("Double-tap to seek", "Double-tap the left or right side to jump 10 seconds", gestures.doubleTapSeek) { on ->
+                    scope.launch { container.preferences.setVideoGestures(gestures.copy(doubleTapSeek = on)) }
+                }
+                SwitchRow("Brightness gesture", "Swipe up or down on the left half", gestures.brightness) { on ->
+                    scope.launch { container.preferences.setVideoGestures(gestures.copy(brightness = on)) }
+                }
+                SwitchRow("Volume gesture", "Swipe up or down on the right half", gestures.volume) { on ->
+                    scope.launch { container.preferences.setVideoGestures(gestures.copy(volume = on)) }
+                }
+                Body("With a vertical gesture off, swiping down on that half closes the video instead.")
             }
 
             GlassCard {

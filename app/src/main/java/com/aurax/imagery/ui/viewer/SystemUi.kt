@@ -40,21 +40,36 @@ fun ImmersiveEffect(hideSystemBars: Boolean) {
     }
 }
 
-/** Locks the screen to landscape while [landscape] is true; releases the lock when leaving the viewer. */
+/** Holds the screen orientation per [lock]; releases it when leaving the viewer. */
 @Composable
-fun LandscapeEffect(landscape: Boolean) {
+fun OrientationLockEffect(lock: com.aurax.imagery.domain.player.OrientationLock) {
     val view = LocalView.current
-    DisposableEffect(landscape) {
+    DisposableEffect(lock) {
         val activity = view.context.findActivity()
-        activity?.requestedOrientation = if (landscape) {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-        } else {
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.requestedOrientation = when (lock) {
+            com.aurax.imagery.domain.player.OrientationLock.Auto -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            com.aurax.imagery.domain.player.OrientationLock.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            com.aurax.imagery.domain.player.OrientationLock.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
         onDispose { }
     }
     DisposableEffect(Unit) {
         val activity = view.context.findActivity()
         onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
+}
+
+/** Puts the window brightness back to what it was when the viewer opened (gesture changes are temporary). */
+@Composable
+fun BrightnessRestoreEffect() {
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        val window = view.context.findActivity()?.window
+        val original = window?.attributes?.screenBrightness
+        onDispose {
+            if (window != null && original != null) {
+                window.attributes = window.attributes.also { it.screenBrightness = original }
+            }
+        }
     }
 }

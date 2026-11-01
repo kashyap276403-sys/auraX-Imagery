@@ -3,6 +3,7 @@ package com.aurax.imagery.domain.repository
 import com.aurax.imagery.domain.model.GalleryPreferences
 import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortOrder
+import com.aurax.imagery.domain.player.VideoGestureSettings
 import kotlinx.coroutines.flow.Flow
 
 interface PreferencesRepository {
@@ -22,4 +23,7 @@ interface PreferencesRepository {
     val videoScreenMode: Flow<String?>
     val videoAspectPreset: Flow<String?>
     suspend fun setVideoDisplay(screenMode: String, aspectPreset: String)
+
+    val videoGestures: Flow<VideoGestureSettings>
+    suspend fun setVideoGestures(settings: VideoGestureSettings)
 }

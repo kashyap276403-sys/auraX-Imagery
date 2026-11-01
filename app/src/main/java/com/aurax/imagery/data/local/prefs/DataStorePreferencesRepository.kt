@@ -12,6 +12,7 @@ import com.aurax.imagery.domain.model.GalleryPreferences
 import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortField
 import com.aurax.imagery.domain.model.SortOrder
+import com.aurax.imagery.domain.player.VideoGestureSettings
 import com.aurax.imagery.domain.repository.PreferencesRepository
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -77,6 +78,22 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         }
     }
 
+    override val videoGestures: Flow<VideoGestureSettings> = safeData.map { prefs ->
+        VideoGestureSettings(
+            doubleTapSeek = prefs[GESTURE_DOUBLE_TAP] ?: true,
+            brightness = prefs[GESTURE_BRIGHTNESS] ?: true,
+            volume = prefs[GESTURE_VOLUME] ?: true,
+        )
+    }
+
+    override suspend fun setVideoGestures(settings: VideoGestureSettings) {
+        store.edit {
+            it[GESTURE_DOUBLE_TAP] = settings.doubleTapSeek
+            it[GESTURE_BRIGHTNESS] = settings.brightness
+            it[GESTURE_VOLUME] = settings.volume
+        }
+    }
+
     private inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
         this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
 
@@ -86,6 +103,9 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val GROUPING = stringPreferencesKey("grouping")
         val GLASS_STYLE = stringPreferencesKey("glass_style")
         val GLASS_PRESETS = stringPreferencesKey("glass_presets")
+        val GESTURE_DOUBLE_TAP = booleanPreferencesKey("gesture_double_tap_seek")
+        val GESTURE_BRIGHTNESS = booleanPreferencesKey("gesture_brightness")
+        val GESTURE_VOLUME = booleanPreferencesKey("gesture_volume")
         val VIDEO_SCREEN_MODE = stringPreferencesKey("video_screen_mode")
         val VIDEO_ASPECT_PRESET = stringPreferencesKey("video_aspect_preset")
     }

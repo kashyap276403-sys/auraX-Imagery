@@ -20,6 +20,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.aurax.imagery.domain.player.AspectPreset
 import com.aurax.imagery.domain.player.MAX_ZOOM
+import com.aurax.imagery.domain.player.PLAYBACK_SPEEDS
+import com.aurax.imagery.domain.player.speedLabel
 import com.aurax.imagery.domain.player.MIN_ZOOM
 import com.aurax.imagery.domain.player.ScreenMode
 import com.aurax.imagery.ui.components.LiquidBottomSheet
@@ -119,4 +121,25 @@ private fun SectionLabel(text: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = 20.dp, bottom = 8.dp),
     )
+}
+
+/** Playback speed chooser, 0.25x to 2x. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun PlaybackSpeedSheet(speed: Float, onSpeed: (Float) -> Unit, onDismiss: () -> Unit) {
+    LiquidBottomSheet(onDismiss = onDismiss) {
+        Text("Playback speed", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = "Now ${speedLabel(speed)}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PLAYBACK_SPEEDS.forEach { value ->
+                FilterChip(selected = value == speed, onClick = { onSpeed(value) }, label = { Text(speedLabel(value)) })
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
 }
