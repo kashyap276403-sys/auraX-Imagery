@@ -19,7 +19,7 @@ import com.aurax.imagery.utils.MediaAccess
 
 /** Photos tab: the whole library as a date-grouped timeline, behind the media-access flow. */
 @Composable
-fun HomeScreen() {
+fun HomeScreen(onOpenViewer: (MediaSource, Long) -> Unit) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
     // Any access change (first grant, switch to partial, revoke in settings) re-syncs the index.
     val access = rememberMediaAccessState(onAccessChanged = { container.indexer.enqueue() })
@@ -37,10 +37,12 @@ fun HomeScreen() {
         MediaListScreen(
             title = "Photos",
             subtitle = tagline,
+            source = MediaSource.All,
             viewModel = viewModel,
             emptyIcon = Icons.Rounded.PhotoLibrary,
             emptyTitle = "No photos or videos",
             emptyMessage = "Nothing was found on this device yet. Take a photo and it will show up here.",
+            onOpenViewer = onOpenViewer,
             header = { PartialAccessBanner(access) },
         )
     }

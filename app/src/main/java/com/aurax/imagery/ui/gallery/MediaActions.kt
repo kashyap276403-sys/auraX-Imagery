@@ -8,17 +8,17 @@ import android.widget.Toast
 import com.aurax.imagery.domain.model.MediaItem
 
 /**
- * Interim "open": hands the file to the user's default viewer. Replaced by the in-app
- * immersive viewer in Phase 4.
+ * Hands a photo to the user's installed editor. Read access only: editors save a copy, so the
+ * original is never overwritten. Replaced by the built-in editor in Phase 5.
  */
-fun openExternally(context: Context, item: MediaItem) {
-    val intent = Intent(Intent.ACTION_VIEW)
+fun editExternally(context: Context, item: MediaItem) {
+    val intent = Intent(Intent.ACTION_EDIT)
         .setDataAndType(Uri.parse(item.uri), item.mimeType)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     try {
         context.startActivity(intent)
     } catch (e: ActivityNotFoundException) {
-        Toast.makeText(context, "No app available to open this file", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "No editor app available", Toast.LENGTH_SHORT).show()
     }
 }
 

@@ -17,18 +17,22 @@ fun AlbumDetailScreen(
     ref: AlbumRef,
     title: String,
     onBack: () -> Unit,
+    onOpenViewer: (MediaSource, Long) -> Unit,
 ) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
+    val source = MediaSource.Album(ref)
     val viewModel: MediaListViewModel = viewModel(
         key = "album-$ref",
-        factory = MediaListViewModel.factory(container, MediaSource.Album(ref)),
+        factory = MediaListViewModel.factory(container, source),
     )
     MediaListScreen(
         title = title,
+        source = source,
         viewModel = viewModel,
         emptyIcon = Icons.Rounded.PhotoAlbum,
         emptyTitle = "This album is empty",
         emptyMessage = "Photos and videos in this album will show up here.",
         onBack = onBack,
+        onOpenViewer = onOpenViewer,
     )
 }

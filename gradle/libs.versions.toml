@@ -11,6 +11,7 @@ coroutines = "1.10.2"
 room = "2.7.1"
 work = "2.10.1"
 datastore = "1.1.4"
+media3 = "1.6.1"
 coil = "3.1.0"
 junit = "4.13.2"
 
@@ -34,6 +35,8 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+# Video playback only needs the player core; the stock PlayerView UI is not used (custom glass controls).
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 
 # Coil 3 without coil-network on purpose: the app is offline-only and never fetches images over the network.
 coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref = "coil" }

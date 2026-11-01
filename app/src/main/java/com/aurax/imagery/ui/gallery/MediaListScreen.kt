@@ -13,6 +13,7 @@ import androidx.compose.material.icons.rounded.ArrowDownward
 import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.SelectAll
@@ -37,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.aurax.imagery.AuraXApp
 import com.aurax.imagery.domain.model.GalleryPreferences
 import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortField
@@ -54,10 +56,12 @@ import com.aurax.imagery.ui.theme.LocalGlassStyle
 @Composable
 fun MediaListScreen(
     title: String,
+    source: MediaSource,
     viewModel: MediaListViewModel,
     emptyIcon: ImageVector,
     emptyTitle: String,
     emptyMessage: String,
+    onOpenViewer: (MediaSource, Long) -> Unit,
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
@@ -65,6 +69,12 @@ fun MediaListScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val container = (context.applicationContext as AuraXApp).container
+    // System-confirmed move to trash; afterwards leave selection mode and re-sync the index.
+    val trash = rememberTrashAction {
+        viewModel.clearSelection()
+        container.indexer.enqueue()
+    }
     val haptics = LocalHapticFeedback.current
     val glass = LocalGlassStyle.current
     val selecting = state.selectedIds.isNotEmpty()
@@ -92,6 +102,9 @@ fun MediaListScreen(
                     }
                     IconButton(onClick = { shareItems(context, viewModel.selectedItems()) }) {
                         Icon(Icons.Rounded.Share, contentDescription = "Share")
+                    }
+                    IconButton(onClick = { trash(viewModel.selectedItems()) }) {
+                        Icon(Icons.Rounded.Delete, contentDescription = "Move to trash")
                     }
                 },
             )
@@ -127,7 +140,7 @@ fun MediaListScreen(
                         selectedIds = state.selectedIds,
                         selecting = selecting,
                         onItemClick = { item ->
-                            if (selecting) viewModel.toggleSelection(item.id) else openExternally(context, item)
+                            if (selecting) viewModel.toggleSelection(item.id) else onOpenViewer(source, item.id)
                         },
                         onItemLongClick = { item ->
                             if (glass.haptics) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
