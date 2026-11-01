@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.width
 import com.aurax.imagery.domain.player.RecentVideo
 import com.aurax.imagery.ui.gallery.MediaSource
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.item
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
