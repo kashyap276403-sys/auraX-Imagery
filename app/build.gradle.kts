@@ -1,3 +1,4 @@
+import org.gradle.process.CommandLineArgumentProvider
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -48,8 +49,15 @@ kotlin {
 }
 
 // Room writes the database schema here at build time; MigrationSqlTest checks the hand-written migration SQL against it.
+// Declared as a task output (Room's recommended form) so a build-cache hit still restores the schema files.
+class RoomSchemaArgProvider(
+    @get:org.gradle.api.tasks.OutputDirectory val schemaDir: File,
+) : CommandLineArgumentProvider {
+    override fun asArguments(): Iterable<String> = listOf("room.schemaLocation=${schemaDir.path}")
+}
+
 ksp {
-    arg("room.schemaLocation", "$projectDir/schemas")
+    arg(RoomSchemaArgProvider(File(projectDir, "schemas")))
 }
 
 dependencies {
