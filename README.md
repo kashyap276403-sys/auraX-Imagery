@@ -32,7 +32,8 @@ The environment used for development has no Android SDK, so builds and unit test
 | V2 | Pinch zoom + drag pan, double-tap seek (±10s), brightness (left half) and volume (right half) swipes with indicators, playback speed 0.25x-2x, orientation lock (Auto/Portrait/Landscape), gesture toggles in Settings > Video player | Builds in CI, `VideoGesturesTest` passes. **Not run on a device** |
 | V3 | Embedded + external .srt subtitles (size, position), audio track picker, A-B repeat, repeat off/one/queue, playback queue (next/previous/autoplay/remove), bookmarks (Room DB v2 migration), frame preview while scrubbing | Builds in CI, `PlaybackLogicTest` passes. **Not run on a device**; the Room 1->2 migration has never run on a real database. No subtitle delay (Media3 has no offset) |
 | V4 | Resume watching (Room v3 `playback_progress`, also the history), Continue watching / Recently played rows in Albums, sleep timer, Picture-in-Picture (play/pause button, auto-enter), save current frame as PNG, full video details sheet, Settings: resume switch + clear history | Builds in CI, `PlaybackHistoryTest` passes. **Not run on a device**; Room 2->3 migration and PiP never exercised on a phone |
-| V5-V6 | Cinematic modes, settings, final testing | Not started |
+| V5 | Cinematic looks (Original/Cinema/Vivid/Warm/Cool via a GPU colour matrix on the video layer), full Settings > Video player (default speed/screen mode, remember mode, seek interval, auto-hide, orientation, autoplay, subtitles default, haptics, gestures, resume, reset), shared `PlayerPill`, sheet border/radius from Glass Studio, reduced-motion aware fades, 48dp touch targets, seek-bar semantics, slower position polling while controls are hidden | Builds in CI, `CinematicAndSettingsTest` passes. **Not run on a device.** Sheets are separate windows, so they are not blurred |
+| V6 | Final testing and stability | Not started |
 
 ## Building
 
