@@ -47,6 +47,11 @@ kotlin {
     }
 }
 
+// Room writes the database schema here at build time; MigrationSqlTest checks the hand-written migration SQL against it.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)

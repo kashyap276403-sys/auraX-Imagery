@@ -336,13 +336,15 @@ fun VideoPlayerPage(
 
     fun selectSubtitle(option: TrackOption?) {
         val active = player ?: return
+        val group = option?.let { tracks.groups.getOrNull(it.groupIndex) }
+        if (option != null && group == null) return // the track list changed under the picker
         val params = active.trackSelectionParameters.buildUpon()
         if (option == null) {
             params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
             cueText = ""
         } else {
             params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                .setOverrideForType(TrackSelectionOverride(tracks.groups[option.groupIndex].mediaTrackGroup, option.trackIndex))
+                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, option.trackIndex))
         }
         active.trackSelectionParameters = params.build()
     }
@@ -437,8 +439,9 @@ fun VideoPlayerPage(
         if (vs.rememberScreenMode) scope.launch { container.preferences.setVideoDisplay(mode.name, newPreset.name) }
     }
     LaunchedEffect(zoom) { onZoomChanged(zoom > 1.001f) }
-    LaunchedEffect(showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showDetails, showCinematic, showMenu, dragging) {
-        onBusyChanged(showCinematic || showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showDetails || showMenu || dragging)
+    LaunchedEffect(isCurrentPage, showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showDetails, showCinematic, showMenu, dragging) {
+        // Neighbouring pages are composed too; only the visible one may report "busy".
+        if (isCurrentPage) onBusyChanged(showCinematic || showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showDetails || showMenu || dragging)
     }
     LaunchedEffect(isPlaying, isCurrentPage) { if (isCurrentPage) onPlayingChanged(isPlaying) }
 
@@ -1028,10 +1031,13 @@ fun VideoPlayerPage(
             onSize = { subtitleSize = it },
             onPosition = { subtitlePosition = it },
             onSelectAudio = { option ->
+                val group = tracks.groups.getOrNull(option.groupIndex)
                 player?.let { active ->
-                    active.trackSelectionParameters = active.trackSelectionParameters.buildUpon()
-                        .setOverrideForType(TrackSelectionOverride(tracks.groups[option.groupIndex].mediaTrackGroup, option.trackIndex))
-                        .build()
+                    if (group != null) {
+                        active.trackSelectionParameters = active.trackSelectionParameters.buildUpon()
+                            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, option.trackIndex))
+                            .build()
+                    }
                 }
             },
             onDismiss = { showTracksSheet = false },
