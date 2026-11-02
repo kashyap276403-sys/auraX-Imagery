@@ -35,6 +35,8 @@ The environment used for development has no Android SDK, so builds and unit test
 | V5 | Cinematic looks (Original/Cinema/Vivid/Warm/Cool via a GPU colour matrix on the video layer), full Settings > Video player (default speed/screen mode, remember mode, seek interval, auto-hide, orientation, autoplay, subtitles default, haptics, gestures, resume, reset), shared `PlayerPill`, sheet border/radius from Glass Studio, reduced-motion aware fades, 48dp touch targets, seek-bar semantics, slower position polling while controls are hidden | Builds in CI, `CinematicAndSettingsTest` passes. **Not run on a device.** Sheets are separate windows, so they are not blurred |
 | V6 | Code audit and fixes (neighbouring pages could clear the "busy" state; stale track indices), schema-export check of the Room migration SQL (`MigrationSqlTest`), device checklist in `docs/VIDEO_PLAYER_CHECKLIST.md` | Builds in CI. **No device or UI test has been run**, so V1-V6 are verified by compilation and unit tests only |
 
+| V-UI | Cinematic player redesign: glass close/more buttons, title + info, 5-button transport with a luminous play button, floating cluster (volume, subtitles, audio, one-tap ratio and zoom cycles), thin bottom panel with keyframe scrub preview that follows the thumb, Info/Queue/Speed chips, fade+slide chrome | Builds in CI, unit tests pass. **Not run on a device.** Glass is dark translucent with a rim light; there is no backdrop blur on the video controls |
+
 ## Building
 
 Open in Android Studio (latest stable) and run the `app` configuration, or from the command line:
