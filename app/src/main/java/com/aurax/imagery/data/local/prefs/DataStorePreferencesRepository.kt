@@ -5,6 +5,8 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -12,7 +14,11 @@ import com.aurax.imagery.domain.model.GalleryPreferences
 import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortField
 import com.aurax.imagery.domain.model.SortOrder
+import com.aurax.imagery.domain.player.CinematicMode
+import com.aurax.imagery.domain.player.OrientationLock
+import com.aurax.imagery.domain.player.ScreenMode
 import com.aurax.imagery.domain.player.VideoGestureSettings
+import com.aurax.imagery.domain.player.VideoPlayerSettings
 import com.aurax.imagery.domain.repository.PreferencesRepository
 import java.io.IOException
 import kotlinx.coroutines.flow.Flow
@@ -100,6 +106,53 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[VIDEO_RESUME] = enabled }
     }
 
+    override val videoPlayer: Flow<VideoPlayerSettings> = safeData.map { prefs ->
+        val d = VideoPlayerSettings()
+        VideoPlayerSettings(
+            defaultSpeed = prefs[VP_SPEED] ?: d.defaultSpeed,
+            defaultScreenMode = prefs[VP_SCREEN].toEnumOrNull<ScreenMode>() ?: d.defaultScreenMode,
+            rememberScreenMode = prefs[VP_REMEMBER_SCREEN] ?: d.rememberScreenMode,
+            seekIntervalSec = prefs[VP_SEEK] ?: d.seekIntervalSec,
+            autoHideSec = prefs[VP_AUTO_HIDE] ?: d.autoHideSec,
+            autoPlayNext = prefs[VP_AUTOPLAY] ?: d.autoPlayNext,
+            subtitlesOnByDefault = prefs[VP_SUBTITLES] ?: d.subtitlesOnByDefault,
+            orientation = prefs[VP_ORIENTATION].toEnumOrNull<OrientationLock>() ?: d.orientation,
+            haptics = prefs[VP_HAPTICS] ?: d.haptics,
+        ).sanitized()
+    }
+
+    override suspend fun setVideoPlayer(settings: VideoPlayerSettings) {
+        val s = settings.sanitized()
+        store.edit {
+            it[VP_SPEED] = s.defaultSpeed
+            it[VP_SCREEN] = s.defaultScreenMode.name
+            it[VP_REMEMBER_SCREEN] = s.rememberScreenMode
+            it[VP_SEEK] = s.seekIntervalSec
+            it[VP_AUTO_HIDE] = s.autoHideSec
+            it[VP_AUTOPLAY] = s.autoPlayNext
+            it[VP_SUBTITLES] = s.subtitlesOnByDefault
+            it[VP_ORIENTATION] = s.orientation.name
+            it[VP_HAPTICS] = s.haptics
+        }
+    }
+
+    override val videoCinematic: Flow<CinematicMode> =
+        safeData.map { it[VIDEO_CINEMATIC].toEnumOrNull<CinematicMode>() ?: CinematicMode.Original }
+
+    override suspend fun setVideoCinematic(mode: CinematicMode) {
+        store.edit { it[VIDEO_CINEMATIC] = mode.name }
+    }
+
+    override suspend fun resetVideoPlayer() {
+        store.edit {
+            listOf(
+                VP_SPEED, VP_SCREEN, VP_REMEMBER_SCREEN, VP_SEEK, VP_AUTO_HIDE, VP_AUTOPLAY, VP_SUBTITLES,
+                VP_ORIENTATION, VP_HAPTICS, VIDEO_CINEMATIC, VIDEO_SCREEN_MODE, VIDEO_ASPECT_PRESET, VIDEO_RESUME,
+                GESTURE_DOUBLE_TAP, GESTURE_BRIGHTNESS, GESTURE_VOLUME,
+            ).forEach { key -> it.remove(key) }
+        }
+    }
+
     private inline fun <reified E : Enum<E>> String?.toEnumOrNull(): E? =
         this?.let { name -> enumValues<E>().firstOrNull { it.name == name } }
 
@@ -112,6 +165,16 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val GESTURE_DOUBLE_TAP = booleanPreferencesKey("gesture_double_tap_seek")
         val GESTURE_BRIGHTNESS = booleanPreferencesKey("gesture_brightness")
         val GESTURE_VOLUME = booleanPreferencesKey("gesture_volume")
+        val VP_SPEED = floatPreferencesKey("vp_default_speed")
+        val VP_SCREEN = stringPreferencesKey("vp_default_screen")
+        val VP_REMEMBER_SCREEN = booleanPreferencesKey("vp_remember_screen")
+        val VP_SEEK = intPreferencesKey("vp_seek_interval")
+        val VP_AUTO_HIDE = intPreferencesKey("vp_auto_hide")
+        val VP_AUTOPLAY = booleanPreferencesKey("vp_autoplay_next")
+        val VP_SUBTITLES = booleanPreferencesKey("vp_subtitles_default")
+        val VP_ORIENTATION = stringPreferencesKey("vp_orientation")
+        val VP_HAPTICS = booleanPreferencesKey("vp_haptics")
+        val VIDEO_CINEMATIC = stringPreferencesKey("video_cinematic")
         val VIDEO_RESUME = booleanPreferencesKey("video_resume")
         val VIDEO_SCREEN_MODE = stringPreferencesKey("video_screen_mode")
         val VIDEO_ASPECT_PRESET = stringPreferencesKey("video_aspect_preset")

@@ -34,6 +34,8 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import android.content.res.Configuration
 import android.os.SystemClock
+import com.aurax.imagery.domain.player.VideoPlayerSettings
+import kotlinx.coroutines.flow.first
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.DisposableEffect
 import androidx.core.app.PictureInPictureModeChangedInfo
@@ -137,7 +139,10 @@ private fun ViewerContent(
     // Queue = the videos of the list you opened, in order. Removals only last while the viewer is open.
     var removedFromQueue by remember { mutableStateOf(setOf<Long>()) }
     var repeatMode by remember { mutableStateOf(RepeatMode.Off) }
-    var autoPlayNext by remember { mutableStateOf(true) }
+    val playerSettings by container.preferences.videoPlayer
+        .collectAsStateWithLifecycle(initialValue = VideoPlayerSettings())
+    val autoPlayNext = playerSettings.autoPlayNext
+    LaunchedEffect(Unit) { orientationLock = container.preferences.videoPlayer.first().orientation }
     var pendingAutoPlay by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
     var sleepEndsAt by remember { mutableStateOf<Long?>(null) }
@@ -162,7 +167,6 @@ private fun ViewerContent(
     val dragProgress = (abs(dragY.value) / (dismissDistance * 3f)).coerceIn(0f, 1f)
 
     ImmersiveEffect(hideSystemBars = !chromeVisible)
-    OrientationLockEffect(orientationLock)
     BrightnessRestoreEffect()
 
     val trash = rememberTrashAction { trashed ->
@@ -173,6 +177,7 @@ private fun ViewerContent(
 
     val current = items.getOrNull(pagerState.currentPage)
     val isVideo = current?.type == MediaType.Video
+    OrientationLockEffect(if (isVideo) orientationLock else OrientationLock.Auto)
     val orientationLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // Photos always get the action bar. Videos only while paused in portrait, so playback stays clean.
     val actionBarAllowed = current != null && (!isVideo || (!videoPlaying && !landscape && !orientationLandscape))
@@ -203,9 +208,9 @@ private fun ViewerContent(
         consumeAutoPlay = { pendingAutoPlay.also { pendingAutoPlay = false } },
     )
     // While a video plays, the controls fade out after a few idle seconds; any interaction restarts it.
-    LaunchedEffect(chromeVisible, videoPlaying, videoBusy, interactionTick, isVideo) {
-        if (chromeVisible && isVideo && videoPlaying && !videoBusy) {
-            delay(3500L)
+    LaunchedEffect(chromeVisible, videoPlaying, videoBusy, interactionTick, isVideo, playerSettings.autoHideSec) {
+        if (chromeVisible && isVideo && videoPlaying && !videoBusy && playerSettings.autoHideSec > 0) {
+            delay(playerSettings.autoHideSec * 1000L)
             chromeVisible = false
         }
     }
@@ -375,7 +380,7 @@ AnimatedVisibility(
             repeatMode = repeatMode,
             autoPlayNext = autoPlayNext,
             onRepeatMode = { repeatMode = it },
-            onAutoPlayNext = { autoPlayNext = it },
+            onAutoPlayNext = { on -> scope.launch { container.preferences.setVideoPlayer(playerSettings.copy(autoPlayNext = on)) } },
             onPlay = { id ->
                 showQueue = false
                 if (id != current?.id) playVideo(id)

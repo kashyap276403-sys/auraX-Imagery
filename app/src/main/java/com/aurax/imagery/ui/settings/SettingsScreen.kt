@@ -16,7 +16,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Switch
+import com.aurax.imagery.domain.player.AUTO_HIDE_OPTIONS_SEC
+import com.aurax.imagery.domain.player.OrientationLock
+import com.aurax.imagery.domain.player.PLAYBACK_SPEEDS
+import com.aurax.imagery.domain.player.SEEK_INTERVALS_SEC
+import com.aurax.imagery.domain.player.ScreenMode
+import com.aurax.imagery.domain.player.VideoPlayerSettings
+import com.aurax.imagery.domain.player.autoHideLabel
+import com.aurax.imagery.domain.player.speedLabel
 import com.aurax.imagery.domain.player.VideoGestureSettings
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -110,7 +121,56 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                 Heading("Video player")
                 val gestures by container.preferences.videoGestures
                     .collectAsStateWithLifecycle(initialValue = VideoGestureSettings())
-                SwitchRow("Double-tap to seek", "Double-tap the left or right side to jump 10 seconds", gestures.doubleTapSeek) { on ->
+                val player by container.preferences.videoPlayer
+                    .collectAsStateWithLifecycle(initialValue = VideoPlayerSettings())
+                fun save(next: VideoPlayerSettings) {
+                    scope.launch { container.preferences.setVideoPlayer(next) }
+                }
+
+                ChoiceChips(
+                    title = "Default playback speed",
+                    options = PLAYBACK_SPEEDS,
+                    selected = player.defaultSpeed,
+                    label = ::speedLabel,
+                ) { save(player.copy(defaultSpeed = it)) }
+                ChoiceChips(
+                    title = "Default screen mode",
+                    options = ScreenMode.entries.toList(),
+                    selected = player.defaultScreenMode,
+                    label = { it.label },
+                ) { save(player.copy(defaultScreenMode = it)) }
+                SwitchRow("Remember last screen mode", "Open videos in the mode you used last", player.rememberScreenMode) { on ->
+                    save(player.copy(rememberScreenMode = on))
+                }
+                ChoiceChips(
+                    title = "Seek interval",
+                    options = SEEK_INTERVALS_SEC,
+                    selected = player.seekIntervalSec,
+                    label = { "$it s" },
+                ) { save(player.copy(seekIntervalSec = it)) }
+                ChoiceChips(
+                    title = "Hide controls after",
+                    options = AUTO_HIDE_OPTIONS_SEC,
+                    selected = player.autoHideSec,
+                    label = ::autoHideLabel,
+                ) { save(player.copy(autoHideSec = it)) }
+                ChoiceChips(
+                    title = "Orientation",
+                    options = OrientationLock.entries.toList(),
+                    selected = player.orientation,
+                    label = { it.label },
+                ) { save(player.copy(orientation = it)) }
+
+                SwitchRow("Play next video automatically", "When a video ends, continue with the next one", player.autoPlayNext) { on ->
+                    save(player.copy(autoPlayNext = on))
+                }
+                SwitchRow("Subtitles on by default", "Turn on the first subtitle track when a video has one", player.subtitlesOnByDefault) { on ->
+                    save(player.copy(subtitlesOnByDefault = on))
+                }
+                SwitchRow("Player haptics", "A small tick on double-tap seek", player.haptics) { on ->
+                    save(player.copy(haptics = on))
+                }
+                SwitchRow("Double-tap to seek", "Double-tap the left or right side to jump", gestures.doubleTapSeek) { on ->
                     scope.launch { container.preferences.setVideoGestures(gestures.copy(doubleTapSeek = on)) }
                 }
                 SwitchRow("Brightness gesture", "Swipe up or down on the left half", gestures.brightness) { on ->
@@ -126,7 +186,15 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                 }
                 val historyCount by container.history.observeCount().collectAsStateWithLifecycle(initialValue = 0)
                 InfoRow("Watch history", if (historyCount == 1) "1 video" else "$historyCount videos")
-                TextButton(onClick = { confirmClearHistory = true }, enabled = historyCount > 0) { Text("Clear watch history") }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { confirmClearHistory = true }, enabled = historyCount > 0) { Text("Clear watch history") }
+                    TextButton(onClick = {
+                        scope.launch {
+                            container.preferences.resetVideoPlayer()
+                            Toast.makeText(context, "Player settings reset", Toast.LENGTH_SHORT).show()
+                        }
+                    }) { Text("Reset player settings") }
+                }
             }
 
             GlassCard {
@@ -228,6 +296,29 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
             },
             dismissButton = { TextButton(onClick = { confirmClearFavorites = false }) { Text("Cancel") } },
         )
+    }
+}
+
+/** A titled row of single-choice chips. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun <T> ChoiceChips(
+    title: String,
+    options: List<T>,
+    selected: T,
+    label: (T) -> String,
+    onSelect: (T) -> Unit,
+) {
+    Column(modifier = Modifier.padding(vertical = 6.dp)) {
+        Text(text = title, style = MaterialTheme.typography.bodyMedium)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(top = 6.dp),
+        ) {
+            options.forEach { option ->
+                FilterChip(selected = option == selected, onClick = { onSelect(option) }, label = { Text(label(option)) })
+            }
+        }
     }
 }
 

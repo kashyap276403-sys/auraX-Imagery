@@ -143,3 +143,38 @@ fun PlaybackSpeedSheet(speed: Float, onSpeed: (Float) -> Unit, onDismiss: () -> 
         Spacer(Modifier.height(8.dp))
     }
 }
+
+/** Cinematic display looks. They only change how the picture is shown, never the file. */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+fun CinematicSheet(
+    mode: com.aurax.imagery.domain.player.CinematicMode,
+    onMode: (com.aurax.imagery.domain.player.CinematicMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    LiquidBottomSheet(onDismiss = onDismiss) {
+        Text("Cinematic look", style = MaterialTheme.typography.titleLarge)
+        Text(
+            text = mode.hint,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            com.aurax.imagery.domain.player.CinematicMode.entries.forEach {
+                FilterChip(selected = it == mode, onClick = { onMode(it) }, label = { Text(it.label) })
+            }
+        }
+        TextButton(
+            onClick = { onMode(com.aurax.imagery.domain.player.CinematicMode.Original) },
+            enabled = !mode.isOriginal,
+            modifier = Modifier.padding(top = 8.dp),
+        ) { Text("Reset to Original") }
+        Text(
+            text = "Applies to what you see only. Saved frames and the video file stay untouched.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+    }
+}

@@ -3,7 +3,9 @@ package com.aurax.imagery.domain.repository
 import com.aurax.imagery.domain.model.GalleryPreferences
 import com.aurax.imagery.domain.model.Grouping
 import com.aurax.imagery.domain.model.SortOrder
+import com.aurax.imagery.domain.player.CinematicMode
 import com.aurax.imagery.domain.player.VideoGestureSettings
+import com.aurax.imagery.domain.player.VideoPlayerSettings
 import kotlinx.coroutines.flow.Flow
 
 interface PreferencesRepository {
@@ -30,4 +32,14 @@ interface PreferencesRepository {
     /** Continue from the last position when a video is opened again. */
     val videoResume: Flow<Boolean>
     suspend fun setVideoResume(enabled: Boolean)
+
+    val videoPlayer: Flow<VideoPlayerSettings>
+    suspend fun setVideoPlayer(settings: VideoPlayerSettings)
+
+    /** Last cinematic look chosen in the player. */
+    val videoCinematic: Flow<CinematicMode>
+    suspend fun setVideoCinematic(mode: CinematicMode)
+
+    /** Puts every video player preference (including gestures, resume, last screen mode) back to defaults. */
+    suspend fun resetVideoPlayer()
 }

@@ -3,6 +3,24 @@ package com.aurax.imagery.ui.viewer
 import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
 import android.content.Context
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Paint
+import android.view.View
+import androidx.compose.animation.core.tween
+import androidx.compose.material.icons.rounded.Forward30
+import androidx.compose.material.icons.rounded.Forward5
+import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Replay30
+import androidx.compose.material.icons.rounded.Replay5
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import com.aurax.imagery.domain.player.CinematicMode
+import com.aurax.imagery.domain.player.VideoPlayerSettings
+import com.aurax.imagery.ui.glass.rememberReducedMotion
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.SystemClock
@@ -121,7 +139,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -169,7 +186,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import androidx.media3.common.MediaItem as ExoMediaItem
 
-private const val SEEK_STEP_MS = 10_000L
 private val ScrimColor = Color.Black.copy(alpha = 0.38f)
 
 /** What the viewer-level queue offers the page: skip buttons, end-of-video handling, repeat mode. */
@@ -293,6 +309,13 @@ fun VideoPlayerPage(
     var flashTick by remember { mutableIntStateOf(0) }
     val gestures by container.preferences.videoGestures
         .collectAsStateWithLifecycle(initialValue = VideoGestureSettings())
+    val vs by container.preferences.videoPlayer.collectAsStateWithLifecycle(initialValue = VideoPlayerSettings())
+    val haptic = LocalHapticFeedback.current
+    val reduceMotion = rememberReducedMotion()
+    val fadeMs = if (reduceMotion) 0 else 220
+    var cinematic by remember { mutableStateOf(CinematicMode.Original) }
+    var showCinematic by remember { mutableStateOf(false) }
+    LaunchedEffect(item.id) { speed = container.preferences.videoPlayer.first().defaultSpeed }
     LaunchedEffect(indicatorTick) {
         if (indicator != null) {
             delay(900L)
@@ -310,6 +333,30 @@ fun VideoPlayerPage(
         player?.repeatMode = if (queue.repeatMode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
     LaunchedEffect(ended, isCurrentPage) { if (ended && isCurrentPage) latestQueue.onEnded() }
+
+    fun selectSubtitle(option: TrackOption?) {
+        val active = player ?: return
+        val params = active.trackSelectionParameters.buildUpon()
+        if (option == null) {
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            cueText = ""
+        } else {
+            params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(tracks.groups[option.groupIndex].mediaTrackGroup, option.trackIndex))
+        }
+        active.trackSelectionParameters = params.build()
+    }
+    // "Subtitles on by default": switch the first usable subtitle track on once per video.
+    var subtitleDefaultDone by remember(item.id) { mutableStateOf(false) }
+    LaunchedEffect(tracks, vs.subtitlesOnByDefault) {
+        if (vs.subtitlesOnByDefault && !subtitleDefaultDone) {
+            val options = trackOptions(tracks, C.TRACK_TYPE_TEXT, "Subtitle")
+            if (options.isNotEmpty()) {
+                subtitleDefaultDone = true
+                if (options.none { it.selected }) options.firstOrNull { it.supported }?.let(::selectSubtitle)
+            }
+        }
+    }
 
     // Resume position: written while playing, when paused, at the end and when the page closes.
     fun saveProgress(p: ExoPlayer, finished: Boolean = false) {
@@ -372,21 +419,26 @@ fun VideoPlayerPage(
     }
     var dragging by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        container.preferences.videoScreenMode.first()
-            ?.let { saved -> ScreenMode.entries.firstOrNull { it.name == saved } }
-            ?.let { screenMode = it }
-        container.preferences.videoAspectPreset.first()
-            ?.let { saved -> AspectPreset.entries.firstOrNull { it.name == saved } }
-            ?.let { preset = it }
+        val settings = container.preferences.videoPlayer.first()
+        cinematic = container.preferences.videoCinematic.first()
+        screenMode = settings.defaultScreenMode
+        if (settings.rememberScreenMode) {
+            container.preferences.videoScreenMode.first()
+                ?.let { saved -> ScreenMode.entries.firstOrNull { it.name == saved } }
+                ?.let { screenMode = it }
+            container.preferences.videoAspectPreset.first()
+                ?.let { saved -> AspectPreset.entries.firstOrNull { it.name == saved } }
+                ?.let { preset = it }
+        }
     }
     fun applyDisplay(mode: ScreenMode, newPreset: AspectPreset) {
         screenMode = mode
         preset = newPreset
-        scope.launch { container.preferences.setVideoDisplay(mode.name, newPreset.name) }
+        if (vs.rememberScreenMode) scope.launch { container.preferences.setVideoDisplay(mode.name, newPreset.name) }
     }
     LaunchedEffect(zoom) { onZoomChanged(zoom > 1.001f) }
-    LaunchedEffect(showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showDetails, showMenu, dragging) {
-        onBusyChanged(showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showDetails || showMenu || dragging)
+    LaunchedEffect(showRatioSheet, showSpeedSheet, showTracksSheet, showAbSheet, showBookmarks, showDetails, showCinematic, showMenu, dragging) {
+        onBusyChanged(showCinematic || showRatioSheet || showSpeedSheet || showTracksSheet || showAbSheet || showBookmarks || showDetails || showMenu || dragging)
     }
     LaunchedEffect(isPlaying, isCurrentPage) { if (isCurrentPage) onPlayingChanged(isPlaying) }
 
@@ -460,7 +512,8 @@ fun VideoPlayerPage(
         onDispose { active.removeListener(listener) }
     }
 
-    // Poll the playback position; slower while paused.
+    val controlsNow by rememberUpdatedState(controlsVisible)
+    // Poll the playback position: fast while the seek bar is on screen, slow while paused or hidden.
     LaunchedEffect(player) {
         val active = player ?: return@LaunchedEffect
         var lastSave = SystemClock.elapsedRealtime()
@@ -474,7 +527,7 @@ fun VideoPlayerPage(
                 active.seekTo(target)
                 positionMs = target
             }
-            delay(if (abRange.isActive && isPlaying) 80L else if (isPlaying) 250L else 600L)
+            delay(if (abRange.isActive && isPlaying) 80L else if (isPlaying && controlsNow) 250L else if (isPlaying) 1000L else 600L)
         }
     }
 
@@ -499,8 +552,8 @@ fun VideoPlayerPage(
         val containerH = constraints.maxHeight.toFloat()
         val ratio = preset.ratio.takeIf { screenMode == ScreenMode.Fit || screenMode == ScreenMode.Fill }
         val frame = computeFrame(containerW, containerH, videoW, videoH, screenMode, ratio)
-        val frameWDp = with(density) { frame.width.toDp() }
-        val frameHDp = with(density) { frame.height.toDp() }
+        val frameWDp by animateDpAsState(with(density) { frame.width.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameW")
+        val frameHDp by animateDpAsState(with(density) { frame.height.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameH")
 
 
         // The picture frame. Pan is clamped so zooming never opens a gap; drag moves it while zoomed.
@@ -527,6 +580,7 @@ fun VideoPlayerPage(
                 key(active) {
                     AndroidView(
                         factory = { ctx -> TextureView(ctx).also { active.setVideoTextureView(it); textureRef = it } },
+                        update = { view -> applyLook(view, cinematic) },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -544,11 +598,12 @@ fun VideoPlayerPage(
                         val zone = tapZone(offset.x, size.width.toFloat())
                         val active = player
                         if (gestures.doubleTapSeek && zone != TapZone.Center && active != null) {
-                            val delta = if (zone == TapZone.Right) SEEK_STEP_MS else -SEEK_STEP_MS
+                            val delta = if (zone == TapZone.Right) vs.seekIntervalSec * 1000L else -vs.seekIntervalSec * 1000L
                             active.seekTo(seekTarget(active.currentPosition, delta, durationMs))
                             ended = false
                             seekFlash = zone
                             flashTick++
+                            if (vs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             onInteraction()
                         } else if (zoom > 1f) {
                             zoom = 1f
@@ -657,15 +712,9 @@ fun VideoPlayerPage(
         }
 
         resumedAt?.let { at ->
-            Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 150.dp)
-                    .clip(CircleShape)
-                    .background(ScrimColor)
-                    .padding(start = 16.dp, end = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            PlayerPill(
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 150.dp),
+                announce = "Continuing from ${formatDuration(at)}",
             ) {
                 Text("Continuing from ${formatDuration(at)}", color = Color.White, style = MaterialTheme.typography.labelLarge)
                 TextButton(onClick = {
@@ -679,24 +728,22 @@ fun VideoPlayerPage(
         // Brightness / volume level and double-tap seek feedback.
         indicator?.let { LevelPill(it, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp)) }
         seekFlash?.let { zone ->
-            Text(
-                text = if (zone == TapZone.Right) "+10s" else "-10s",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium,
+            val label = if (zone == TapZone.Right) "+${vs.seekIntervalSec}s" else "-${vs.seekIntervalSec}s"
+            PlayerPill(
                 modifier = Modifier
                     .align(if (zone == TapZone.Right) Alignment.CenterEnd else Alignment.CenterStart)
-                    .padding(horizontal = 40.dp)
-                    .clip(CircleShape)
-                    .background(ScrimColor)
-                    .padding(horizontal = 18.dp, vertical = 10.dp),
-            )
+                    .padding(horizontal = 40.dp),
+                announce = if (zone == TapZone.Right) "Forward ${vs.seekIntervalSec} seconds" else "Back ${vs.seekIntervalSec} seconds",
+            ) {
+                Text(text = label, color = Color.White, style = MaterialTheme.typography.titleMedium)
+            }
         }
 
         // Top bar: back, title, details, more.
         AnimatedVisibility(
             visible = controlsVisible,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn(tween(fadeMs)),
+            exit = fadeOut(tween(fadeMs)),
             modifier = Modifier.align(Alignment.TopCenter),
         ) {
             Row(
@@ -732,6 +779,14 @@ fun VideoPlayerPage(
                             onClick = {
                                 showMenu = false
                                 showRatioSheet = true
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (cinematic.isOriginal) "Cinematic look" else "Cinematic look · ${cinematic.label}") },
+                            leadingIcon = { Icon(Icons.Rounded.Movie, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showCinematic = true
                             },
                         )
                         DropdownMenuItem(
@@ -848,8 +903,8 @@ fun VideoPlayerPage(
         if (active != null && ready) {
             AnimatedVisibility(
                 visible = (controlsVisible || !isPlaying) && !inPip,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = fadeIn(tween(fadeMs)),
+                exit = fadeOut(tween(fadeMs)),
             ) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -860,8 +915,8 @@ fun VideoPlayerPage(
                             queue.onPrev()
                         }
                     }
-                    TransportButton(Icons.Rounded.Replay10, "Back 10 seconds", 48.dp) {
-                        active.seekTo((active.currentPosition - SEEK_STEP_MS).coerceAtLeast(0L))
+                    TransportButton(replayIcon(vs.seekIntervalSec), "Back ${vs.seekIntervalSec} seconds", 48.dp) {
+                        active.seekTo((active.currentPosition - vs.seekIntervalSec * 1000L).coerceAtLeast(0L))
                         ended = false
                         onInteraction()
                     }
@@ -888,9 +943,9 @@ fun VideoPlayerPage(
                         }
                         onInteraction()
                     }
-                    TransportButton(Icons.Rounded.Forward10, "Forward 10 seconds", 48.dp) {
+                    TransportButton(forwardIcon(vs.seekIntervalSec), "Forward ${vs.seekIntervalSec} seconds", 48.dp) {
                         val limit = if (durationMs > 0) durationMs else Long.MAX_VALUE
-                        active.seekTo((active.currentPosition + SEEK_STEP_MS).coerceAtMost(limit))
+                        active.seekTo((active.currentPosition + vs.seekIntervalSec * 1000L).coerceAtMost(limit))
                         onInteraction()
                     }
                     if (queue.canPrev || queue.canNext) {
@@ -906,8 +961,8 @@ fun VideoPlayerPage(
         if (active != null && ready) {
             AnimatedVisibility(
                 visible = controlsVisible,
-                enter = fadeIn(),
-                exit = fadeOut(),
+                enter = fadeIn(tween(fadeMs)),
+                exit = fadeOut(tween(fadeMs)),
                 modifier = Modifier.align(Alignment.BottomCenter),
             ) {
                 SeekControls(
@@ -936,6 +991,17 @@ fun VideoPlayerPage(
         }
     }
 
+    if (showCinematic) {
+        CinematicSheet(
+            mode = cinematic,
+            onMode = {
+                cinematic = it
+                scope.launch { container.preferences.setVideoCinematic(it) }
+            },
+            onDismiss = { showCinematic = false },
+        )
+    }
+
     if (showDetails) {
         val tech = remember(tracks, firstFrameShown) { player?.let(::techInfo) }
         val location by produceState<String?>(null, item.id) {
@@ -957,20 +1023,7 @@ fun VideoPlayerPage(
             audio = audioOptions,
             size = subtitleSize,
             position = subtitlePosition,
-            onSelectSubtitle = { option ->
-                val active = player
-                if (active != null) {
-                    val params = active.trackSelectionParameters.buildUpon()
-                    if (option == null) {
-                        params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
-                        cueText = ""
-                    } else {
-                        params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                            .setOverrideForType(TrackSelectionOverride(tracks.groups[option.groupIndex].mediaTrackGroup, option.trackIndex))
-                    }
-                    active.trackSelectionParameters = params.build()
-                }
-            },
+            onSelectSubtitle = { option -> selectSubtitle(option) },
             onPickSrt = { srtPicker.launch(arrayOf("*/*")) },
             onSize = { subtitleSize = it },
             onPosition = { subtitlePosition = it },
@@ -1109,19 +1162,36 @@ private fun LevelPill(indicator: LevelIndicator, modifier: Modifier = Modifier) 
         indicator.level <= 0f -> Icons.Rounded.VolumeOff
         else -> Icons.Rounded.VolumeUp
     }
-    Row(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(ScrimColor)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Icon(icon, contentDescription = if (indicator.kind == LevelKind.Brightness) "Brightness" else "Volume", tint = Color.White, modifier = Modifier.size(20.dp))
+    val name = if (indicator.kind == LevelKind.Brightness) "Brightness" else "Volume"
+    val percent = (indicator.level * 100).roundToInt()
+    PlayerPill(modifier = modifier, announce = "$name $percent percent") {
+        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
         Box(Modifier.width(110.dp).height(3.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.3f))) {
             Box(Modifier.fillMaxWidth(indicator.level).fillMaxHeight().background(Color.White))
         }
-        Text("${(indicator.level * 100).roundToInt()}%", color = Color.White, style = MaterialTheme.typography.labelMedium)
+        Text("$percent%", color = Color.White, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+private fun replayIcon(seconds: Int) = when (seconds) {
+    5 -> Icons.Rounded.Replay5
+    30 -> Icons.Rounded.Replay30
+    else -> Icons.Rounded.Replay10
+}
+
+private fun forwardIcon(seconds: Int) = when (seconds) {
+    5 -> Icons.Rounded.Forward5
+    30 -> Icons.Rounded.Forward30
+    else -> Icons.Rounded.Forward10
+}
+
+/** Colour look via the TextureView's layer paint: one GPU colour multiply, and none at all for Original. */
+private fun applyLook(view: TextureView, mode: CinematicMode) {
+    if (mode.isOriginal) {
+        view.setLayerType(View.LAYER_TYPE_NONE, null)
+    } else {
+        val paint = Paint().apply { colorFilter = ColorMatrixColorFilter(ColorMatrix(mode.matrix)) }
+        view.setLayerType(View.LAYER_TYPE_HARDWARE, paint)
     }
 }
 
@@ -1259,7 +1329,9 @@ private fun SeekControls(
                     )
                 }
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .semantics { stateDescription = "${formatDuration(shownPosition)} of ${formatDuration(durationMs)}" },
         )
         Text(text = formatDuration(durationMs), style = timeStyle, color = dim)
         SmallIcon(
@@ -1283,7 +1355,7 @@ private fun SmallIcon(
     description: String,
     onClick: () -> Unit,
 ) {
-    IconButton(onClick = onClick, modifier = Modifier.size(36.dp)) {
+    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
         Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(20.dp))
     }
 }
