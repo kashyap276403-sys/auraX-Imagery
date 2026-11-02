@@ -12,6 +12,12 @@ enum class GlassMode(val label: String) {
     FullTransparent("Full Transparent Glass"),
 }
 
+/** Which glass look is drawn. Both families share every other setting. */
+enum class GlassFamily(val label: String, val hint: String) {
+    Classic("Classic Liquid Glass", "Frosted, translucent, soft blur and fine borders"),
+    WaterDrop("Water Drop Liquid Glass", "Glossy, lens-like, stronger refraction and moving highlights"),
+}
+
 /**
  * Every tunable property of the glass look, in one immutable value.
  *
@@ -24,6 +30,11 @@ enum class GlassMode(val label: String) {
 @Immutable
 data class GlassStyle(
     val mode: GlassMode = GlassMode.Natural,
+    val family: GlassFamily = GlassFamily.Classic,
+    /** Water Drop only: how strong the lens bulge, gloss and caustic light are, 0..1. */
+    val waterDrop: Float = 0.6f,
+    /** Scales the opacity of every glass border and rim, 0..1. 1 keeps the original look. */
+    val borderOpacity: Float = 1f,
     /** Backdrop blur strength, 0..1. */
     val blur: Float = 0.6f,
     /** Opacity of the glass fill, 0..1 (lower = more transparent). */

@@ -97,6 +97,12 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                 Body("Blur, refraction, tint, reflection, text colour, motion and presets. Tap to open.")
             }
 
+            com.aurax.imagery.ui.glass.studio.GlassStyleCard(
+                style = style,
+                onFamily = { f -> glass.update { it.copy(family = f) } },
+                onWaterDrop = { v -> glass.update { it.copy(waterDrop = v) } },
+            )
+
             GlassCard {
                 Heading("Appearance")
                 InfoRow("Theme", "AMOLED black (dark only)")

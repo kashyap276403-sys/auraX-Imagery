@@ -37,7 +37,7 @@ fun LiquidBottomSheet(
         onDismissRequest = onDismiss,
         modifier = modifier.border(
             width = style.borderWidth,
-            color = Color.White.copy(alpha = 0.10f),
+            color = Color.White.copy(alpha = 0.10f * style.borderOpacity),
             shape = RoundedCornerShape(topStart = corner, topEnd = corner),
         ),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),

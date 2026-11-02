@@ -21,6 +21,16 @@ class GlassStyleCodecTest {
     }
 
     @Test
+    fun waterDropSettingsRoundTripAndOldDataStaysClassic() {
+        val style = GlassStyle.Natural.copy(family = GlassFamily.WaterDrop, waterDrop = 0.8f, borderOpacity = 0.4f)
+        assertEquals(style, GlassStyleCodec.decode(GlassStyleCodec.encode(style)))
+        // Saved before Water Drop existed: no new keys, so it must load as the unchanged Classic look.
+        val old = GlassStyleCodec.encode(GlassStyle.PureLiquid).split(';').filterNot { it.startsWith("fm=") || it.startsWith("wd=") || it.startsWith("bo=") }.joinToString(";")
+        assertEquals(GlassStyle.PureLiquid, GlassStyleCodec.decode(old))
+        assertEquals(1f, GlassStyleCodec.decode("bo=7").borderOpacity, 0f)
+    }
+
+    @Test
     fun damagedInputFallsBackToDefaults() {
         assertEquals(GlassStyle.Natural, GlassStyleCodec.decode(null))
         assertEquals(GlassStyle.Natural, GlassStyleCodec.decode("garbage;;==;x"))

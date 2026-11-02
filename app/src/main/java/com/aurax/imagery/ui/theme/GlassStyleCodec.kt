@@ -20,6 +20,9 @@ object GlassStyleCodec {
 
     fun encode(style: GlassStyle): String = listOf(
         "m=${style.mode.name}",
+        "fm=${style.family.name}",
+        "wd=${style.waterDrop}",
+        "bo=${style.borderOpacity}",
         "bl=${style.blur}",
         "op=${style.opacity}",
         "tn=${style.tint.toArgb()}",
@@ -52,6 +55,9 @@ object GlassStyleCodec {
 
         return GlassStyle(
             mode = GlassMode.entries.firstOrNull { it.name == values["m"] } ?: base.mode,
+            family = GlassFamily.entries.firstOrNull { it.name == values["fm"] } ?: base.family,
+            waterDrop = float("wd", base.waterDrop, 0f, 1f),
+            borderOpacity = float("bo", base.borderOpacity, 0f, 1f),
             blur = float("bl", base.blur, 0f, 1f),
             opacity = float("op", base.opacity, 0f, 0.6f),
             tint = values["tn"]?.toIntOrNull()?.let { Color(it) } ?: base.tint,

@@ -127,11 +127,12 @@ fun LiquidNavCapsule(
             cornerRadius = 100.dp,
         )
     }
-    val baseRim = remember {
-        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.03f), Color.White.copy(alpha = 0.10f)))
+    val baseRim = remember(style.borderOpacity) {
+        val bo = style.borderOpacity
+        Brush.linearGradient(listOf(Color.White.copy(alpha = 0.18f * bo), Color.White.copy(alpha = 0.03f * bo), Color.White.copy(alpha = 0.10f * bo)))
     }
-    val lensRim = remember(style.edgeBrightness) {
-        val a = (0.35f + 0.6f * style.edgeBrightness).coerceIn(0f, 1f)
+    val lensRim = remember(style.edgeBrightness, style.borderOpacity) {
+        val a = ((0.35f + 0.6f * style.edgeBrightness) * style.borderOpacity).coerceIn(0f, 1f)
         Brush.linearGradient(listOf(Color.White.copy(alpha = a), Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = a * 0.6f)))
     }
 

@@ -78,6 +78,7 @@ import com.aurax.imagery.ui.glass.LocalHazeState
 import com.aurax.imagery.ui.glass.MAX_GLASS_OPACITY
 import com.aurax.imagery.ui.glass.rememberGlassTilt
 import com.aurax.imagery.ui.glass.rememberReducedMotion
+import com.aurax.imagery.ui.theme.GlassFamily
 import com.aurax.imagery.ui.theme.GlassMode
 import com.aurax.imagery.ui.theme.GlassStyle
 import com.aurax.imagery.ui.theme.LocalGlassStyle
@@ -156,6 +157,8 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            GlassStyleCard(style = style, onFamily = { f -> settings.update { it.copy(family = f) } }, onWaterDrop = { v -> settings.update { it.copy(waterDrop = v) } })
+
             GlassCard {
                 SectionTitle("Mode")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -166,6 +169,8 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                                 // A mode replaces the look but keeps personal switches.
                                 settings.update { current ->
                                     mode.baseStyle().copy(
+                                        family = current.family,
+                                        waterDrop = current.waterDrop,
                                         haptics = current.haptics,
                                         motionEffects = current.motionEffects,
                                         performanceMode = current.performanceMode,
@@ -189,6 +194,7 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                 GlassSlider("Refraction", style.distortion, { v -> settings.update { it.copy(distortion = v) } })
                 GlassSlider("Reflection", style.reflection, { v -> settings.update { it.copy(reflection = v) } })
                 GlassSlider("Edge brightness", style.edgeBrightness, { v -> settings.update { it.copy(edgeBrightness = v) } })
+                GlassSlider("Border opacity", style.borderOpacity, { v -> settings.update { it.copy(borderOpacity = v) } })
             }
 
             GlassCard {
@@ -309,6 +315,8 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                     GlassButton(text = "Reset mode", onClick = {
                         settings.update { current ->
                             current.mode.baseStyle().copy(
+                                family = current.family,
+                                waterDrop = current.waterDrop,
                                 haptics = current.haptics,
                                 motionEffects = current.motionEffects,
                                 performanceMode = current.performanceMode,
@@ -507,5 +515,31 @@ private fun ColorCard(
             onValueChange = { v -> onColor(Color.hsv(hsv[0], hsv[1], v.coerceAtLeast(0.1f))) },
         )
         extra()
+    }
+}
+
+/** Picks Classic or Water Drop, and shows the Water Drop strength only when it has an effect. */
+@Composable
+fun GlassStyleCard(style: GlassStyle, onFamily: (GlassFamily) -> Unit, onWaterDrop: (Float) -> Unit) {
+    GlassCard {
+        SectionTitle("Glass style")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            GlassFamily.entries.forEach { family ->
+                FilterChip(
+                    selected = style.family == family,
+                    onClick = { onFamily(family) },
+                    label = { Text(family.label.removeSuffix(" Liquid Glass"), maxLines = 1) },
+                )
+            }
+        }
+        Text(
+            text = style.family.hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+        if (style.family == GlassFamily.WaterDrop) {
+            GlassSlider("Water Drop intensity", style.waterDrop, onWaterDrop)
+        }
     }
 }

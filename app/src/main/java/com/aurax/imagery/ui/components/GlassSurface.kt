@@ -64,12 +64,13 @@ fun GlassSurface(
             ),
         )
     }
-    val borderBrush = remember(style.reflection) {
+    val borderBrush = remember(style.reflection, style.borderOpacity) {
+        val bo = style.borderOpacity
         Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = (0.55f * style.reflection).coerceIn(0f, 1f)),
-                Color.White.copy(alpha = 0.06f),
-                Color.White.copy(alpha = (0.25f * style.reflection).coerceIn(0f, 1f)),
+                Color.White.copy(alpha = (0.55f * style.reflection * bo).coerceIn(0f, 1f)),
+                Color.White.copy(alpha = 0.06f * bo),
+                Color.White.copy(alpha = (0.25f * style.reflection * bo).coerceIn(0f, 1f)),
             ),
         )
     }

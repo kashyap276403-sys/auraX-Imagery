@@ -130,12 +130,12 @@ fun LiquidGlassPanel(
             spotColor = AuraCyan.copy(alpha = (0.35f * style.glow).coerceIn(0f, 1f)),
         )
     }
-    val rim = remember(style.reflection, style.edgeBrightness) {
-        val a = (0.35f + 0.5f * style.edgeBrightness) * style.reflection.coerceAtLeast(0.2f)
+    val rim = remember(style.reflection, style.edgeBrightness, style.borderOpacity) {
+        val a = (0.35f + 0.5f * style.edgeBrightness) * style.reflection.coerceAtLeast(0.2f) * style.borderOpacity
         Brush.linearGradient(
             listOf(
                 Color.White.copy(alpha = a.coerceIn(0f, 1f)),
-                Color.White.copy(alpha = 0.05f),
+                Color.White.copy(alpha = 0.05f * style.borderOpacity),
                 Color.White.copy(alpha = (a * 0.5f).coerceIn(0f, 1f)),
             ),
         )
