@@ -16,7 +16,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -62,7 +61,7 @@ fun ScrimIconButton(
     modifier: Modifier = Modifier,
 ) {
     ScrimIconSlot(modifier) {
-        IconButton(onClick = onClick) {
+        DropIconButton(onClick = onClick) {
             Icon(imageVector = icon, contentDescription = contentDescription, tint = androidx.compose.ui.graphics.Color.White)
         }
     }
@@ -77,7 +76,7 @@ fun GlassIconButton(
     modifier: Modifier = Modifier,
 ) {
     GlassIconSlot(modifier) {
-        IconButton(onClick = onClick) {
+        DropIconButton(onClick = onClick) {
             Icon(imageVector = icon, contentDescription = contentDescription)
         }
     }

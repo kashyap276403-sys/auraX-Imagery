@@ -4,6 +4,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
@@ -103,6 +105,13 @@ fun AuraNavHost(
                 navArgument(AuraRoutes.ARG_ALBUM_ID) { type = NavType.LongType },
                 navArgument(AuraRoutes.ARG_MEDIA_ID) { type = NavType.LongType },
             ),
+            // The picture opens with a soft springy zoom and closes by settling back, instead of a plain fade.
+            enterTransition = {
+                fadeIn(tween(200)) + scaleIn(initialScale = 0.82f, animationSpec = spring(dampingRatio = 0.82f, stiffness = 380f))
+            },
+            popExitTransition = {
+                fadeOut(tween(180)) + scaleOut(targetScale = 0.88f, animationSpec = spring(dampingRatio = 0.9f, stiffness = 450f))
+            },
         ) { entry ->
             val args = entry.arguments
             ViewerScreen(

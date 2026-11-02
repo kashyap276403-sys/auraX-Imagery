@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -143,13 +144,20 @@ private fun MediaThumbnail(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
-    val scale by animateFloatAsState(targetValue = if (selected) 0.86f else 1f, label = "thumbScale")
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    // Selected shrinks the picture; a press dips it a little and it springs back, like pressing a drop of water.
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 0.86f else if (pressed) 0.93f else 1f,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 400f),
+        label = "thumbScale",
+    )
 
     Box(
         modifier = Modifier
             .aspectRatio(1f)
             .background(Color(0xFF111114))
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            .combinedClickable(interactionSource = source, indication = null, onClick = onClick, onLongClick = onLongClick),
     ) {
         Box(
             modifier = Modifier

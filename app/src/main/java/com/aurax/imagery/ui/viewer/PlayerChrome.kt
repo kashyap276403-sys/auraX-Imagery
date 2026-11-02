@@ -93,6 +93,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.aurax.imagery.domain.player.AbRange
+import com.aurax.imagery.ui.components.dropRing
 import com.aurax.imagery.utils.formatDuration
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
@@ -170,7 +171,11 @@ fun GlassCircleButton(
     reduceMotion: Boolean = false,
     plain: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    /** true: the button shrinks away and returns on tap. false (play, seek): only a small dip. */
+    vanish: Boolean = true,
 ) {
+    val fx = com.aurax.imagery.ui.components.rememberDropFx()
+    val dropScope = androidx.compose.runtime.rememberCoroutineScope()
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
@@ -181,9 +186,12 @@ fun GlassCircleButton(
     Box(
         modifier = modifier
             .size(size)
+            .dropRing(fx)
             .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
+                val d = fx.scale.value
+                scaleX = scale * d
+                scaleY = scale * d
+                alpha = if (vanish) (fx.scale.value / 0.6f).coerceIn(0f, 1f) else 1f
             }
             .clip(CircleShape)
             .then(
@@ -200,7 +208,10 @@ fun GlassCircleButton(
                 role = Role.Button,
                 onClickLabel = description,
                 onLongClick = onLongClick,
-                onClick = onClick,
+                onClick = {
+                    fx.launchIn(dropScope, if (vanish) 0f else 0.78f)
+                    onClick()
+                },
             )
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center,
@@ -347,7 +358,7 @@ fun PlayerTransport(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (showSeek) {
-                GlassCircleButton(rewindIcon, "Back $seekSeconds seconds", onRewind, size = 60.dp, iconSize = 30.dp, reduceMotion = reduce)
+                GlassCircleButton(rewindIcon, "Back $seekSeconds seconds", onRewind, size = 60.dp, iconSize = 30.dp, vanish = false, reduceMotion = reduce)
             }
             val label = when {
                 ended -> "Replay"
@@ -361,10 +372,10 @@ fun PlayerTransport(
             }
             val big = if (showSeek) 88.dp else 76.dp
             Crossfade(targetState = playIcon, animationSpec = tween(fadeMs), label = "playIcon") { shown ->
-                GlassCircleButton(shown, label, onPlayPause, size = big, iconSize = big / 2, luminous = showSeek, reduceMotion = reduce)
+                GlassCircleButton(shown, label, onPlayPause, size = big, iconSize = big / 2, luminous = showSeek, vanish = false, reduceMotion = reduce)
             }
             if (showSeek) {
-                GlassCircleButton(forwardIcon, "Forward $seekSeconds seconds", onForward, size = 60.dp, iconSize = 30.dp, reduceMotion = reduce)
+                GlassCircleButton(forwardIcon, "Forward $seekSeconds seconds", onForward, size = 60.dp, iconSize = 30.dp, vanish = false, reduceMotion = reduce)
             }
         }
     }

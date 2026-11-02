@@ -1,7 +1,15 @@
 package com.aurax.imagery.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import com.aurax.imagery.ui.glass.rememberReducedMotion
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -92,8 +100,22 @@ fun GlassDropdownMenu(
         shape = RoundedCornerShape((style.cornerRadius * 0.6f).coerceIn(14.dp, 28.dp)),
         containerColor = style.windowColor(),
         border = if (style.borderWidth > 0.dp) BorderStroke(style.borderWidth, style.windowRim()) else null,
-        content = content,
-    )
+    ) {
+        // Opens like a drop landing: grows from the top-right corner (where the three-dot button is) with a springy overshoot.
+        val reduced = rememberReducedMotion()
+        val open = remember { Animatable(if (reduced || !style.motionEffects) 1f else 0f) }
+        LaunchedEffect(Unit) { if (open.value < 1f) open.animateTo(1f, spring(dampingRatio = 0.58f, stiffness = 420f)) }
+        Column(
+            Modifier.graphicsLayer {
+                val v = open.value
+                val s = 0.8f + 0.2f * v
+                scaleX = s
+                scaleY = s
+                alpha = (v * 1.6f).coerceIn(0f, 1f)
+                transformOrigin = TransformOrigin(1f, 0f)
+            },
+        ) { content() }
+    }
 }
 
 /** The app's dialog: same corner radius and body colour as sheets and menus. */

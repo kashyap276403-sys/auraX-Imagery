@@ -27,10 +27,10 @@ import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Tune
 import com.aurax.imagery.ui.components.GlassDropdownMenu
+import com.aurax.imagery.ui.components.DropIconButton
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -110,20 +110,20 @@ fun MediaListScreen(
                 navigationDescription = "Clear selection",
                 onNavigationClick = viewModel::clearSelection,
                 actions = {
-                    IconButton(onClick = viewModel::selectAll) {
+                    DropIconButton(onClick = viewModel::selectAll) {
                         Icon(Icons.Rounded.SelectAll, contentDescription = "Select all")
                     }
-                    IconButton(onClick = viewModel::toggleFavoriteForSelection) {
+                    DropIconButton(onClick = viewModel::toggleFavoriteForSelection) {
                         Icon(
                             imageVector = if (state.selectionAllFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             contentDescription = if (state.selectionAllFavorite) "Remove from favorites" else "Add to favorites",
                             tint = if (state.selectionAllFavorite) MaterialTheme.colorScheme.primary else LocalContentColor.current,
                         )
                     }
-                    IconButton(onClick = { shareItems(context, viewModel.selectedItems()) }) {
+                    DropIconButton(onClick = { shareItems(context, viewModel.selectedItems()) }) {
                         Icon(Icons.Rounded.Share, contentDescription = "Share")
                     }
-                    IconButton(onClick = { trash(viewModel.selectedItems()) }) {
+                    DropIconButton(onClick = { trash(viewModel.selectedItems()) }) {
                         Icon(Icons.Rounded.Delete, contentDescription = "Move to trash")
                     }
                 },
@@ -211,7 +211,7 @@ private fun SortGroupMenu(
     var expanded by remember { mutableStateOf(false) }
     val sort = preferences.sort
 
-    IconButton(onClick = { expanded = true }) {
+    DropIconButton(onClick = { expanded = true }) {
         Icon(Icons.Rounded.Tune, contentDescription = "Sort and group")
     }
     GlassDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
