@@ -35,7 +35,7 @@ import androidx.compose.material.icons.rounded.PhotoAlbum
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.AlertDialog
+import com.aurax.imagery.ui.components.GlassAlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -332,7 +332,7 @@ fun GlassStudioScreen(onBack: () -> Unit) {
 
     if (showSaveDialog) {
         var name by remember { mutableStateOf("") }
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showSaveDialog = false },
             title = { Text("Save preset") },
             text = {

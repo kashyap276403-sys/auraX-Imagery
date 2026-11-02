@@ -26,7 +26,7 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.SelectAll
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.DropdownMenu
+import com.aurax.imagery.ui.components.GlassDropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -214,7 +214,7 @@ private fun SortGroupMenu(
     IconButton(onClick = { expanded = true }) {
         Icon(Icons.Rounded.Tune, contentDescription = "Sort and group")
     }
-    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+    GlassDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
         Text(
             text = "SORT BY",
             style = MaterialTheme.typography.labelSmall,

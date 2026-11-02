@@ -35,16 +35,18 @@ fun LiquidBottomSheet(
     val corner = style.cornerRadius.coerceIn(24.dp, 36.dp)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = modifier.border(
-            width = style.borderWidth,
-            color = Color.White.copy(alpha = 0.10f * style.borderOpacity),
-            shape = RoundedCornerShape(topStart = corner, topEnd = corner),
-        ),
+        modifier = modifier
+            .border(
+                width = style.borderWidth,
+                brush = style.windowRim(),
+                shape = RoundedCornerShape(topStart = corner, topEnd = corner),
+            )
+            .glassGloss(style),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = RoundedCornerShape(topStart = corner, topEnd = corner),
         // Sheets are separate windows, so there is nothing to blur behind them; they stay a dense
         // near-black glass for readability, with the app's border width and corner radius.
-        containerColor = Color(0xFF0B0B10).copy(alpha = 0.96f),
+        containerColor = style.windowColor(),
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Column(

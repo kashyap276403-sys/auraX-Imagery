@@ -33,7 +33,7 @@ import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.RotateLeft
 import androidx.compose.material.icons.rounded.RotateRight
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.AlertDialog
+import com.aurax.imagery.ui.components.GlassAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -181,7 +181,7 @@ fun EditorScreen(mediaId: Long, onClose: () -> Unit) {
     }
 
     if (confirmDiscard) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmDiscard = false },
             title = { Text("Discard edits?") },
             text = { Text("Your changes haven't been saved. The original photo stays as it is.") },

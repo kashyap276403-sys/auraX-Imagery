@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.aurax.imagery.ui.components.GlassAlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -274,7 +274,7 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
     }
 
     if (confirmClearHistory) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmClearHistory = false },
             title = { Text("Clear watch history?") },
             text = { Text("Videos will start from the beginning and Continue watching empties. Your videos and bookmarks are not touched.") },
@@ -292,7 +292,7 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
     }
 
     if (confirmClearFavorites) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmClearFavorites = false },
             title = { Text("Clear all favorites?") },
             text = { Text("This only removes the heart from your photos and videos. Nothing is deleted.") },

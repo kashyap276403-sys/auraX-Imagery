@@ -133,7 +133,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
 import androidx.compose.material.icons.rounded.Replay10
-import androidx.compose.material3.DropdownMenu
+import com.aurax.imagery.ui.components.GlassDropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -828,7 +828,7 @@ fun VideoPlayerPage(
             onClose = onClose,
             onMore = { showMenu = true },
             menu = {
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                GlassDropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                     if (movieMode) {
                     DropdownMenuItem(
                             text = { Text("Screen ratio") },

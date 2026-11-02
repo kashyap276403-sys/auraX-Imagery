@@ -83,6 +83,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Shape
+import com.aurax.imagery.ui.theme.GlassFamily
+import com.aurax.imagery.ui.theme.LocalGlassStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -98,9 +104,53 @@ import kotlinx.coroutines.withContext
 private val GlassFill = Color.Black.copy(alpha = 0.38f)
 
 /** Faint luminous rim: brighter at the top-left, fading away, like light catching a glass edge. */
-private fun rim(strength: Float) = Brush.linearGradient(
-    listOf(Color.White.copy(alpha = 0.34f * strength), Color.White.copy(alpha = 0.06f * strength)),
+private fun rim(strength: Float, borderOpacity: Float = 1f) = Brush.linearGradient(
+    listOf(
+        Color.White.copy(alpha = (0.34f * strength * borderOpacity).coerceIn(0f, 1f)),
+        Color.White.copy(alpha = (0.06f * strength * borderOpacity).coerceIn(0f, 1f)),
+    ),
 )
+
+/**
+ * Fill, rim and (for Water Drop) gloss of a player control, from the app-wide glass style. Classic is the
+ * original dark translucent fill with a faint rim. Water Drop adds a glint, a wet glow along the bottom and
+ * a brighter rim. There is no backdrop blur behind video controls, so this is surface styling only.
+ */
+@Composable
+private fun Modifier.playerGlass(shape: Shape, strength: Float = 1f): Modifier {
+    val style = LocalGlassStyle.current
+    val drop = style.family == GlassFamily.WaterDrop
+    val fill = if (drop) Color.Black.copy(alpha = 0.30f + 0.10f * (1f - style.waterDrop)) else GlassFill
+    val rimBrush = rim(if (drop) strength * (1f + 0.6f * style.waterDrop) else strength, style.borderOpacity)
+    return this
+        .background(fill)
+        .then(
+            if (drop && !style.performanceMode) {
+                Modifier.drawBehind {
+                    val w = style.waterDrop
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            listOf(Color.Transparent, Color.White.copy(alpha = 0.12f * w)),
+                            startY = size.height * 0.55f,
+                            endY = size.height,
+                        ),
+                    )
+                    drawOval(
+                        brush = Brush.radialGradient(
+                            listOf(Color.White.copy(alpha = (0.34f * w).coerceIn(0f, 1f)), Color.Transparent),
+                            center = Offset(size.width * 0.28f, size.height * 0.2f),
+                            radius = size.minDimension * 0.34f,
+                        ),
+                        topLeft = Offset(size.width * 0.08f, size.height * 0.03f),
+                        size = Size(size.width * 0.5f, size.height * 0.3f),
+                    )
+                }
+            } else {
+                Modifier
+            },
+        )
+        .border(if (strength > 1.5f) 1.5.dp else 1.dp, rimBrush, shape)
+}
 
 /**
  * Round dark-glass button used all over the player. Presses spring in slightly; [luminous] gives
@@ -140,9 +190,7 @@ fun GlassCircleButton(
                 if (plain) {
                     Modifier
                 } else {
-                    Modifier
-                        .background(GlassFill)
-                        .border(if (luminous) 1.5.dp else 1.dp, rim(if (luminous) 1.8f else 1f), CircleShape)
+                    Modifier.playerGlass(CircleShape, if (luminous) 1.8f else 1f)
                 },
             )
             .combinedClickable(
@@ -174,8 +222,7 @@ fun GlassChip(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) 
         modifier = modifier
             .height(40.dp)
             .clip(CircleShape)
-            .background(GlassFill)
-            .border(1.dp, rim(0.8f), CircleShape)
+            .playerGlass(CircleShape, 0.8f)
             .combinedClickable(role = Role.Button, onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
@@ -190,8 +237,7 @@ fun GlassCluster(modifier: Modifier = Modifier, content: @Composable RowScope.()
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(28.dp))
-            .background(GlassFill)
-            .border(1.dp, rim(1f), RoundedCornerShape(28.dp))
+            .playerGlass(RoundedCornerShape(28.dp))
             .padding(horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = content,
