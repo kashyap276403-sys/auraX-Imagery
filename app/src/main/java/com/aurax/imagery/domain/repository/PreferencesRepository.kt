@@ -40,6 +40,10 @@ interface PreferencesRepository {
     val videoCinematic: Flow<CinematicMode>
     suspend fun setVideoCinematic(mode: CinematicMode)
 
+    /** Videos the user has put into Movie mode (advanced player features). */
+    val movieModeIds: Flow<Set<Long>>
+    suspend fun setMovieMode(mediaId: Long, on: Boolean)
+
     /** Puts every video player preference (including gestures, resume, last screen mode) back to defaults. */
     suspend fun resetVideoPlayer()
 }

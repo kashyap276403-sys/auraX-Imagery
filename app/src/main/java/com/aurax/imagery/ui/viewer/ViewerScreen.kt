@@ -142,6 +142,8 @@ private fun ViewerContent(
     val playerSettings by container.preferences.videoPlayer
         .collectAsStateWithLifecycle(initialValue = VideoPlayerSettings())
     val autoPlayNext = playerSettings.autoPlayNext
+    val movieIds by container.preferences.movieModeIds
+        .collectAsStateWithLifecycle(initialValue = emptySet())
     LaunchedEffect(Unit) { orientationLock = container.preferences.videoPlayer.first().orientation }
     var pendingAutoPlay by remember { mutableStateOf(false) }
     var showQueue by remember { mutableStateOf(false) }
@@ -269,6 +271,8 @@ private fun ViewerContent(
                     orientationLock = orientationLock,
                     onCycleOrientation = { orientationLock = orientationLock.next() },
                     queue = queueNav,
+                    movieMode = item.id in movieIds,
+                    onMovieMode = { on -> scope.launch { container.preferences.setMovieMode(item.id, on) } },
                     onClose = onClose,
                     inPip = inPip,
                     session = session,

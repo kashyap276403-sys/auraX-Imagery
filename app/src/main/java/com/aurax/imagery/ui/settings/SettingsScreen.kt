@@ -119,6 +119,11 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
 
             GlassCard {
                 Heading("Video player")
+                Text(
+                    "Gestures, zoom, subtitles and speed work in Movie mode. Turn it on from a video's ⋮ menu.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 val gestures by container.preferences.videoGestures
                     .collectAsStateWithLifecycle(initialValue = VideoGestureSettings())
                 val player by container.preferences.videoPlayer

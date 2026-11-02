@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.aurax.imagery.domain.model.GalleryPreferences
 import com.aurax.imagery.domain.model.Grouping
@@ -143,6 +144,17 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[VIDEO_CINEMATIC] = mode.name }
     }
 
+    override val movieModeIds: Flow<Set<Long>> =
+        safeData.map { prefs -> prefs[MOVIE_MODE_IDS].orEmpty().mapNotNull { it.toLongOrNull() }.toSet() }
+
+    override suspend fun setMovieMode(mediaId: Long, on: Boolean) {
+        store.edit {
+            val current = it[MOVIE_MODE_IDS].orEmpty()
+            val key = mediaId.toString()
+            it[MOVIE_MODE_IDS] = if (on) current + key else current - key
+        }
+    }
+
     override suspend fun resetVideoPlayer() {
         store.edit {
             listOf(
@@ -175,6 +187,7 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val VP_ORIENTATION = stringPreferencesKey("vp_orientation")
         val VP_HAPTICS = booleanPreferencesKey("vp_haptics")
         val VIDEO_CINEMATIC = stringPreferencesKey("video_cinematic")
+        val MOVIE_MODE_IDS = stringSetPreferencesKey("video_movie_mode_ids")
         val VIDEO_RESUME = booleanPreferencesKey("video_resume")
         val VIDEO_SCREEN_MODE = stringPreferencesKey("video_screen_mode")
         val VIDEO_ASPECT_PRESET = stringPreferencesKey("video_aspect_preset")

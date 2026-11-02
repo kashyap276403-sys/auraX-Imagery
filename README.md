@@ -36,6 +36,7 @@ The environment used for development has no Android SDK, so builds and unit test
 | V6 | Code audit and fixes (neighbouring pages could clear the "busy" state; stale track indices), schema-export check of the Room migration SQL (`MigrationSqlTest`), device checklist in `docs/VIDEO_PLAYER_CHECKLIST.md` | Builds in CI. **No device or UI test has been run**, so V1-V6 are verified by compilation and unit tests only |
 
 | V-UI | Cinematic player redesign: glass close/more buttons, title + info, 5-button transport with a luminous play button, floating cluster (volume, subtitles, audio, one-tap ratio and zoom cycles), thin bottom panel with keyframe scrub preview that follows the thumb, Info/Queue/Speed chips, fade+slide chrome | Builds in CI, unit tests pass. **Not run on a device.** Glass is dark translucent with a rim light; there is no backdrop blur on the video controls |
+| V-Movie | Movie mode (per video, via the ⋮ menu): gestures, ratio/zoom, subtitles, audio, speed, cinematic look, A-B repeat and the right-side cluster only work there. Other videos get the plain gallery player (back, title, ⋮, play/pause, seek bar, fullscreen). Transport is -10s / play / +10s; Info, Queue, Speed, Volume and Zoom moved into the ⋮ menu | Builds in CI (check Actions). **Not run on a device** |
 
 ## Building
 

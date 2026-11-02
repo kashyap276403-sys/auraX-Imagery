@@ -242,6 +242,8 @@ fun VideoPlayerPage(
     orientationLock: OrientationLock,
     onCycleOrientation: () -> Unit,
     queue: QueueNav,
+    movieMode: Boolean,
+    onMovieMode: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -354,7 +356,16 @@ fun VideoPlayerPage(
             seekFlash = null
         }
     }
-    LaunchedEffect(player, speed) { player?.setPlaybackParameters(PlaybackParameters(speed)) }
+    LaunchedEffect(player, speed, movieMode) { player?.setPlaybackParameters(PlaybackParameters(if (movieMode) speed else 1f)) }
+    // Leaving Movie mode drops its extras: zoom, A-B loop.
+    LaunchedEffect(movieMode) {
+        if (!movieMode) {
+            zoom = 1f
+            panX = 0f
+            panY = 0f
+            abRange = AbRange()
+        }
+    }
     LaunchedEffect(player, queue.repeatMode) {
         player?.repeatMode = if (queue.repeatMode == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
     }
@@ -394,8 +405,8 @@ fun VideoPlayerPage(
     }
     // "Subtitles on by default": switch the first usable subtitle track on once per video.
     var subtitleDefaultDone by remember(item.id) { mutableStateOf(false) }
-    LaunchedEffect(tracks, vs.subtitlesOnByDefault) {
-        if (vs.subtitlesOnByDefault && !subtitleDefaultDone) {
+    LaunchedEffect(tracks, vs.subtitlesOnByDefault, movieMode) {
+        if (movieMode && vs.subtitlesOnByDefault && !subtitleDefaultDone) {
             val options = trackOptions(tracks, C.TRACK_TYPE_TEXT, "Subtitle")
             if (options.isNotEmpty()) {
                 subtitleDefaultDone = true
@@ -598,8 +609,10 @@ fun VideoPlayerPage(
     ) {
         val containerW = constraints.maxWidth.toFloat()
         val containerH = constraints.maxHeight.toFloat()
-        val ratio = preset.ratio.takeIf { screenMode == ScreenMode.Fit || screenMode == ScreenMode.Fill }
-        val frame = computeFrame(containerW, containerH, videoW, videoH, screenMode, ratio)
+        // Normal mode always shows the whole picture (Fit); screen mode, ratio and zoom are Movie mode features.
+        val modeNow = if (movieMode) screenMode else ScreenMode.Fit
+        val ratio = if (movieMode) preset.ratio.takeIf { screenMode == ScreenMode.Fit || screenMode == ScreenMode.Fill } else null
+        val frame = computeFrame(containerW, containerH, videoW, videoH, modeNow, ratio)
         val frameWDp by animateDpAsState(with(density) { frame.width.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameW")
         val frameHDp by animateDpAsState(with(density) { frame.height.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameH")
 
@@ -639,7 +652,7 @@ fun VideoPlayerPage(
                 key(active) {
                     AndroidView(
                         factory = { ctx -> TextureView(ctx).also { active.setVideoTextureView(it); textureRef = it } },
-                        update = { view -> applyLook(view, cinematic) },
+                        update = { view -> applyLook(view, if (movieMode) cinematic else CinematicMode.Original) },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -650,13 +663,13 @@ fun VideoPlayerPage(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-            .pointerInput(gestures.doubleTapSeek) {
+            .pointerInput(gestures.doubleTapSeek, movieMode) {
                 detectTapGestures(
                     onTap = { onToggleControls() },
                     onDoubleTap = { offset ->
                         val zone = tapZone(offset.x, size.width.toFloat())
                         val active = player
-                        if (gestures.doubleTapSeek && zone != TapZone.Center && active != null) {
+                        if (movieMode && gestures.doubleTapSeek && zone != TapZone.Center && active != null) {
                             val delta = if (zone == TapZone.Right) vs.seekIntervalSec * 1000L else -vs.seekIntervalSec * 1000L
                             active.seekTo(seekTarget(active.currentPosition, delta, durationMs))
                             ended = false
@@ -674,9 +687,10 @@ fun VideoPlayerPage(
             }
             // Left half: brightness. Right half: volume. A half whose gesture is off is left alone,
             // so swiping down there still closes the video.
-            .pointerInput(gestures.brightness, gestures.volume) {
+            .pointerInput(gestures.brightness, gestures.volume, movieMode) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    if (!movieMode) return@awaitEachGesture
                     val width = size.width.toFloat()
                     val left = isLeftHalf(down.position.x, width)
                     if (if (left) !gestures.brightness else !gestures.volume) return@awaitEachGesture
@@ -708,9 +722,10 @@ fun VideoPlayerPage(
                 }
             }
             // Two fingers pinch-zoom and pan; one finger pans only while already zoomed.
-            .pointerInput(containerW, containerH, frame) {
+            .pointerInput(containerW, containerH, frame, movieMode) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
+                    if (!movieMode) return@awaitEachGesture
                     var active = false
                     do {
                         val event = awaitPointerEvent()
@@ -751,7 +766,7 @@ fun VideoPlayerPage(
         val ready = active != null && !failed
 
         // Subtitles, drawn by the app from the player's cue text.
-        if (cueText.isNotBlank()) {
+        if (movieMode && cueText.isNotBlank()) {
             val lifted by animateDpAsState(
                 targetValue = if (controlsVisible) maxOf(subtitlePosition.bottomDp, (if (actionBarVisible) 104 else 12) + 150).dp else subtitlePosition.bottomDp.dp,
                 label = "subtitleLift",
@@ -809,11 +824,13 @@ fun VideoPlayerPage(
             slide = !reduceMotion,
             title = item.displayName,
             info = infoLine,
+            glass = movieMode,
             onClose = onClose,
             onMore = { showMenu = true },
             menu = {
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
+                    if (movieMode) {
+                    DropdownMenuItem(
                             text = { Text("Screen ratio") },
                             leadingIcon = { Icon(Icons.Rounded.AspectRatio, contentDescription = null) },
                             onClick = {
@@ -822,6 +839,29 @@ fun VideoPlayerPage(
                             },
                         )
                         DropdownMenuItem(
+                        text = { Text("Zoom · ${zoomLabel(zoom)}") },
+                        leadingIcon = { Icon(Icons.Rounded.ZoomIn, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            val next = nextZoomPreset(zoom)
+                            zoom = next
+                            if (next <= 1f) {
+                                panX = 0f
+                                panY = 0f
+                            }
+                            toast("ZOOM ${zoomLabel(next)}")
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Volume") },
+                        leadingIcon = { Icon(Icons.Rounded.VolumeUp, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            showVolume = true
+                            volumeTick++
+                        },
+                    )
+                    DropdownMenuItem(
                             text = { Text(if (cinematic.isOriginal) "Cinematic look" else "Cinematic look · ${cinematic.label}") },
                             leadingIcon = { Icon(Icons.Rounded.Movie, contentDescription = null) },
                             onClick = {
@@ -867,14 +907,6 @@ fun VideoPlayerPage(
                             onClick = {
                                 showMenu = false
                                 queue.onShowQueue()
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Rotation · ${orientationLock.label}") },
-                            leadingIcon = { Icon(Icons.Rounded.ScreenRotation, contentDescription = null) },
-                            onClick = {
-                                showMenu = false
-                                onCycleOrientation()
                             },
                         )
                         DropdownMenuItem(
@@ -927,6 +959,14 @@ fun VideoPlayerPage(
                             },
                         )
                         DropdownMenuItem(
+                            text = { Text("Rotation · ${orientationLock.label}") },
+                            leadingIcon = { Icon(Icons.Rounded.ScreenRotation, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                onCycleOrientation()
+                            },
+                        )
+                        DropdownMenuItem(
                             text = { Text("Video details") },
                             leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null) },
                             onClick = {
@@ -934,6 +974,60 @@ fun VideoPlayerPage(
                                 showDetails = true
                             },
                         )
+                    DropdownMenuItem(
+                        text = { Text("Exit Movie mode") },
+                        leadingIcon = { Icon(Icons.Rounded.Movie, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            onMovieMode(false)
+                            toast("MOVIE MODE OFF")
+                        },
+                    )
+                    } else {
+                    DropdownMenuItem(
+                            text = { Text("Picture in picture") },
+                            leadingIcon = { Icon(Icons.Rounded.PictureInPictureAlt, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                if (activity == null || !enterPip(activity, pipParams(context, videoW, videoH, isPlaying, isPlaying))) {
+                                    Toast.makeText(context, "Picture-in-picture isn't available", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Share") },
+                            leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                shareItems(context, listOf(item))
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Rotation · ${orientationLock.label}") },
+                            leadingIcon = { Icon(Icons.Rounded.ScreenRotation, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                onCycleOrientation()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Video details") },
+                            leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                showDetails = true
+                            },
+                        )
+                    DropdownMenuItem(
+                        text = { Text("Movie mode") },
+                        leadingIcon = { Icon(Icons.Rounded.Movie, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            onMovieMode(true)
+                            toast("MOVIE MODE ON")
+                        },
+                    )
+                    }
                 }
             },
             modifier = Modifier.align(Alignment.TopCenter),
@@ -955,13 +1049,10 @@ fun VideoPlayerPage(
                 fadeMs = fadeMs,
                 isPlaying = isPlaying,
                 ended = ended,
+                showSeek = movieMode,
                 rewindIcon = replayIcon(vs.seekIntervalSec),
                 forwardIcon = forwardIcon(vs.seekIntervalSec),
                 seekSeconds = vs.seekIntervalSec,
-                hasQueue = queue.canPrev || queue.canNext,
-                canPrev = queue.canPrev,
-                canNext = queue.canNext,
-                onPrev = queue.onPrev,
                 onRewind = {
                     active.seekTo((active.currentPosition - vs.seekIntervalSec * 1000L).coerceAtLeast(0L))
                     ended = false
@@ -984,7 +1075,6 @@ fun VideoPlayerPage(
                     active.seekTo((active.currentPosition + vs.seekIntervalSec * 1000L).coerceAtMost(limit))
                     onInteraction()
                 },
-                onNext = queue.onNext,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -1010,7 +1100,7 @@ fun VideoPlayerPage(
                 fadeMs = fadeMs,
                 slide = !reduceMotion,
                 bottomInset = panelInset,
-                caption = listOfNotNull(item.albumName, date).joinToString(" · "),
+                caption = if (movieMode) listOfNotNull(item.albumName, date).joinToString(" · ") else null,
                 positionMs = positionMs,
                 durationMs = durationMs,
                 abRange = abRange,
@@ -1025,45 +1115,30 @@ fun VideoPlayerPage(
                 },
                 onDragging = { dragging = it },
                 onToggleFullscreen = onToggleFullscreen,
-                cluster = {
-                    GlassCircleButton(Icons.Rounded.VolumeUp, "Volume", {
-                        showVolume = !showVolume
-                        volumeTick++
-                        onInteraction()
-                    }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
-                    GlassCircleButton(Icons.Rounded.Subtitles, "Subtitles", { showTracksSheet = true }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
-                    GlassCircleButton(Icons.Rounded.Audiotrack, "Audio track", {
-                        cycleAudio()
-                        onInteraction()
-                    }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
-                    GlassCircleButton(
-                        icon = Icons.Rounded.AspectRatio,
-                        description = "Screen ratio ${screenMode.label}. Long press for presets",
-                        onClick = {
-                            val next = screenMode.next()
-                            applyDisplay(next, preset)
-                            toast(next.label.uppercase())
+                cluster = if (movieMode) {
+                    {
+                        GlassCircleButton(Icons.Rounded.Subtitles, "Subtitles", { showTracksSheet = true }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                        GlassCircleButton(Icons.Rounded.Audiotrack, "Audio track", {
+                            cycleAudio()
                             onInteraction()
-                        },
-                        onLongClick = { showRatioSheet = true },
-                        size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion,
-                    )
-                    GlassCircleButton(Icons.Rounded.ZoomIn, "Zoom ${zoomLabel(zoom)}", {
-                        val next = nextZoomPreset(zoom)
-                        zoom = next
-                        if (next <= 1f) {
-                            panX = 0f
-                            panY = 0f
-                        }
-                        toast("ZOOM ${zoomLabel(next)}")
-                        onInteraction()
-                    }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                        }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                        GlassCircleButton(
+                            icon = Icons.Rounded.AspectRatio,
+                            description = "Screen ratio ${screenMode.label}. Long press for presets",
+                            onClick = {
+                                val next = screenMode.next()
+                                applyDisplay(next, preset)
+                                toast(next.label.uppercase())
+                                onInteraction()
+                            },
+                            onLongClick = { showRatioSheet = true },
+                            size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion,
+                        )
+                    }
+                } else {
+                    null
                 },
-                chips = {
-                    GlassChip("Info", onClick = { showDetails = true })
-                    GlassChip("Queue", onClick = queue.onShowQueue)
-                    GlassChip("Speed ${speedLabel(speed)}", onClick = { showSpeedSheet = true })
-                },
+                chips = null,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }

@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
@@ -48,8 +49,6 @@ import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Replay
-import androidx.compose.material.icons.rounded.SkipNext
-import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -213,6 +212,7 @@ fun PlayerTopBar(
     slide: Boolean,
     title: String,
     info: String?,
+    glass: Boolean,
     onClose: () -> Unit,
     onMore: () -> Unit,
     menu: @Composable () -> Unit,
@@ -237,10 +237,14 @@ fun PlayerTopBar(
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                GlassCircleButton(Icons.Rounded.Close, "Close", onClose, reduceMotion = fadeMs == 0)
+                if (glass) {
+                    GlassCircleButton(Icons.Rounded.Close, "Close", onClose, reduceMotion = fadeMs == 0)
+                } else {
+                    GlassCircleButton(Icons.AutoMirrored.Rounded.ArrowBack, "Back", onClose, plain = true, reduceMotion = fadeMs == 0)
+                }
                 Column(
                     modifier = Modifier.weight(1f).padding(horizontal = 12.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                    horizontalAlignment = if (glass) Alignment.CenterHorizontally else Alignment.Start,
                 ) {
                     Text(
                         text = title,
@@ -248,9 +252,9 @@ fun PlayerTopBar(
                         color = Color.White,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center,
+                        textAlign = if (glass) TextAlign.Center else TextAlign.Start,
                     )
-                    if (!info.isNullOrBlank()) {
+                    if (glass && !info.isNullOrBlank()) {
                         Text(
                             text = info,
                             style = MaterialTheme.typography.labelSmall,
@@ -261,7 +265,7 @@ fun PlayerTopBar(
                     }
                 }
                 Box {
-                    GlassCircleButton(Icons.Rounded.MoreVert, "More options", onMore, reduceMotion = fadeMs == 0)
+                    GlassCircleButton(Icons.Rounded.MoreVert, "More options", onMore, plain = !glass, reduceMotion = fadeMs == 0)
                     menu()
                 }
             }
@@ -269,24 +273,20 @@ fun PlayerTopBar(
     }
 }
 
-/** Centre: previous, rewind, play/pause (the highlight), forward, next. */
+/** Centre: rewind, play/pause (the highlight), forward. Normal mode shows only the play button. */
 @Composable
 fun PlayerTransport(
     visible: Boolean,
     fadeMs: Int,
     isPlaying: Boolean,
     ended: Boolean,
+    showSeek: Boolean,
     rewindIcon: ImageVector,
     forwardIcon: ImageVector,
     seekSeconds: Int,
-    hasQueue: Boolean,
-    canPrev: Boolean,
-    canNext: Boolean,
-    onPrev: () -> Unit,
     onRewind: () -> Unit,
     onPlayPause: () -> Unit,
     onForward: () -> Unit,
-    onNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reduce = fadeMs == 0
@@ -297,13 +297,12 @@ fun PlayerTransport(
         modifier = modifier,
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(28.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (hasQueue) {
-                GlassCircleButton(Icons.Rounded.SkipPrevious, "Previous video", onPrev, size = 48.dp, iconSize = 22.dp, enabled = canPrev, reduceMotion = reduce)
+            if (showSeek) {
+                GlassCircleButton(rewindIcon, "Back $seekSeconds seconds", onRewind, size = 60.dp, iconSize = 30.dp, reduceMotion = reduce)
             }
-            GlassCircleButton(rewindIcon, "Back $seekSeconds seconds", onRewind, size = 56.dp, iconSize = 28.dp, reduceMotion = reduce)
             val label = when {
                 ended -> "Replay"
                 isPlaying -> "Pause"
@@ -314,12 +313,12 @@ fun PlayerTransport(
                 isPlaying -> Icons.Rounded.Pause
                 else -> Icons.Rounded.PlayArrow
             }
+            val big = if (showSeek) 88.dp else 76.dp
             Crossfade(targetState = playIcon, animationSpec = tween(fadeMs), label = "playIcon") { shown ->
-                GlassCircleButton(shown, label, onPlayPause, size = 84.dp, iconSize = 42.dp, luminous = true, reduceMotion = reduce)
+                GlassCircleButton(shown, label, onPlayPause, size = big, iconSize = big / 2, luminous = showSeek, reduceMotion = reduce)
             }
-            GlassCircleButton(forwardIcon, "Forward $seekSeconds seconds", onForward, size = 56.dp, iconSize = 28.dp, reduceMotion = reduce)
-            if (hasQueue) {
-                GlassCircleButton(Icons.Rounded.SkipNext, "Next video", onNext, size = 48.dp, iconSize = 22.dp, enabled = canNext, reduceMotion = reduce)
+            if (showSeek) {
+                GlassCircleButton(forwardIcon, "Forward $seekSeconds seconds", onForward, size = 60.dp, iconSize = 30.dp, reduceMotion = reduce)
             }
         }
     }
@@ -422,8 +421,8 @@ fun PlayerBottomPanel(
     onSeek: (Long) -> Unit,
     onDragging: (Boolean) -> Unit,
     onToggleFullscreen: () -> Unit,
-    cluster: @Composable RowScope.() -> Unit,
-    chips: @Composable RowScope.() -> Unit,
+    cluster: (@Composable RowScope.() -> Unit)?,
+    chips: (@Composable RowScope.() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -452,7 +451,7 @@ fun PlayerBottomPanel(
                     .displayCutoutPadding()
                     .padding(start = 20.dp, end = 20.dp, top = 36.dp, bottom = bottomInset),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                if (cluster != null || !caption.isNullOrBlank()) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = caption.orEmpty(),
                         style = MaterialTheme.typography.labelMedium,
@@ -461,7 +460,7 @@ fun PlayerBottomPanel(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f).padding(end = 12.dp),
                     )
-                    GlassCluster(content = cluster)
+                    if (cluster != null) GlassCluster(content = cluster)
                 }
 
                 Box(modifier = Modifier.fillMaxWidth().onSizeChanged { sliderWidth = it.width }) {
@@ -512,12 +511,14 @@ fun PlayerBottomPanel(
                     GlassFullscreenToggle(isLandscape, onToggleFullscreen)
                 }
 
-                Row(
-                    modifier = Modifier.padding(top = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    content = chips,
-                )
+                if (chips != null) {
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        content = chips,
+                    )
+                }
             }
         }
     }
