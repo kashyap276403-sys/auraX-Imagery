@@ -73,3 +73,16 @@ fun clampPan(offset: Float, frameExtent: Float, containerExtent: Float, zoom: Fl
 }
 
 fun Float.clampZoom(): Float = coerceIn(MIN_ZOOM, MAX_ZOOM)
+
+/** One-tap cycle used by the ratio button: Fit, Fill, Original, Stretch, then Fit again. */
+fun ScreenMode.next(): ScreenMode = ScreenMode.entries[(ordinal + 1) % ScreenMode.entries.size]
+
+/** One-tap zoom cycle: normal, 1.5x, 2x, then back to normal. Any in-between pinch value snaps forward. */
+fun nextZoomPreset(zoom: Float): Float = when {
+    zoom < 1.25f -> 1.5f
+    zoom < 1.75f -> 2f
+    else -> 1f
+}
+
+/** "100%", "150%" for the temporary zoom indicator. */
+fun zoomLabel(zoom: Float): String = "${(zoom * 100).toInt()}%"

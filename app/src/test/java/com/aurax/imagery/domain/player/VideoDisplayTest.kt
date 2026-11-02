@@ -68,4 +68,20 @@ class VideoDisplayTest {
         assertEquals(1f, 0.2f.clampZoom(), d)
         assertEquals(4f, 9f.clampZoom(), d)
     }
+
+    @Test fun ratioCycleOrder() {
+        assertEquals(ScreenMode.Fill, ScreenMode.Fit.next())
+        assertEquals(ScreenMode.Original, ScreenMode.Fill.next())
+        assertEquals(ScreenMode.Stretch, ScreenMode.Original.next())
+        assertEquals(ScreenMode.Fit, ScreenMode.Stretch.next())
+    }
+
+    @Test fun zoomCycle() {
+        assertEquals(1.5f, nextZoomPreset(1f), d)
+        assertEquals(2f, nextZoomPreset(1.5f), d)
+        assertEquals(1f, nextZoomPreset(2f), d)
+        assertEquals(1f, nextZoomPreset(3.2f), d)
+        assertEquals(2f, nextZoomPreset(1.6f), d)
+        assertEquals("150%", zoomLabel(1.5f))
+    }
 }

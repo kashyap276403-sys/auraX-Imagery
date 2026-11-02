@@ -3,6 +3,12 @@ package com.aurax.imagery.ui.viewer
 import android.app.PictureInPictureParams
 import android.content.BroadcastReceiver
 import android.content.Context
+import androidx.compose.material.icons.rounded.Audiotrack
+import androidx.compose.material.icons.rounded.ZoomIn
+import com.aurax.imagery.domain.player.next
+import com.aurax.imagery.domain.player.nextZoomPreset
+import com.aurax.imagery.domain.player.zoomLabel
+import androidx.compose.runtime.mutableIntStateOf
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -82,7 +88,6 @@ import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.VolumeOff
 import androidx.compose.material.icons.rounded.VolumeUp
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.input.pointer.positionChanged
@@ -315,6 +320,27 @@ fun VideoPlayerPage(
     val fadeMs = if (reduceMotion) 0 else 220
     var cinematic by remember { mutableStateOf(CinematicMode.Original) }
     var showCinematic by remember { mutableStateOf(false) }
+    var sizeKnown by remember(item.id) { mutableStateOf(false) }
+    var modeToast by remember { mutableStateOf<String?>(null) }
+    var toastTick by remember { mutableIntStateOf(0) }
+    var showVolume by remember { mutableStateOf(false) }
+    var volumeTick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(toastTick) {
+        if (modeToast != null) {
+            delay(1300L)
+            modeToast = null
+        }
+    }
+    LaunchedEffect(showVolume, volumeTick) {
+        if (showVolume) {
+            delay(3000L)
+            showVolume = false
+        }
+    }
+    fun toast(text: String) {
+        modeToast = text
+        toastTick++
+    }
     LaunchedEffect(item.id) { speed = container.preferences.videoPlayer.first().defaultSpeed }
     LaunchedEffect(indicatorTick) {
         if (indicator != null) {
@@ -347,6 +373,24 @@ fun VideoPlayerPage(
                 .setOverrideForType(TrackSelectionOverride(group!!.mediaTrackGroup, option.trackIndex))
         }
         active.trackSelectionParameters = params.build()
+    }
+    fun selectAudio(option: TrackOption) {
+        val group = tracks.groups.getOrNull(option.groupIndex) ?: return
+        val active = player ?: return
+        active.trackSelectionParameters = active.trackSelectionParameters.buildUpon()
+            .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, option.trackIndex))
+            .build()
+    }
+    // Audio button: jump to the next usable audio track; with only one, open the picker instead.
+    fun cycleAudio() {
+        val usable = trackOptions(tracks, C.TRACK_TYPE_AUDIO, "Audio").filter { it.supported }
+        if (usable.size < 2) {
+            showTracksSheet = true
+        } else {
+            val next = usable[(usable.indexOfFirst { it.selected } + 1).mod(usable.size)]
+            selectAudio(next)
+            toast("AUDIO · ${next.title.uppercase()}")
+        }
     }
     // "Subtitles on by default": switch the first usable subtitle track on once per video.
     var subtitleDefaultDone by remember(item.id) { mutableStateOf(false) }
@@ -487,6 +531,7 @@ fun VideoPlayerPage(
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
                     aspect = videoSize.width * videoSize.pixelWidthHeightRatio / videoSize.height
+                    sizeKnown = true
                     val w = videoSize.width * videoSize.pixelWidthHeightRatio
                     val h = videoSize.height.toFloat()
                     val turned = videoSize.unappliedRotationDegrees % 180 != 0
@@ -559,6 +604,17 @@ fun VideoPlayerPage(
         val frameHDp by animateDpAsState(with(density) { frame.height.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameH")
 
 
+        // Until the player reports the real picture size, show the poster fitted to the screen. MediaStore
+        // sizes can ignore rotation, so a frame built from them could flash the wrong shape.
+        if (!firstFrameShown && !sizeKnown) {
+            AsyncImage(
+                model = item.uri,
+                contentDescription = item.displayName,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+
         // The picture frame. Pan is clamped so zooming never opens a gap; drag moves it while zoomed.
         Box(
             modifier = Modifier
@@ -570,8 +626,8 @@ fun VideoPlayerPage(
                     translationY = panY
                 }
         ) {
-            // Poster frame until the first video frame is on screen.
-            if (!firstFrameShown) {
+            // Poster frame until the first video frame is on screen (only once the real shape is known).
+            if (!firstFrameShown && sizeKnown) {
                 AsyncImage(
                     model = item.uri,
                     contentDescription = item.displayName,
@@ -697,7 +753,7 @@ fun VideoPlayerPage(
         // Subtitles, drawn by the app from the player's cue text.
         if (cueText.isNotBlank()) {
             val lifted by animateDpAsState(
-                targetValue = if (controlsVisible) maxOf(subtitlePosition.bottomDp, if (actionBarVisible) 160 else 72).dp else subtitlePosition.bottomDp.dp,
+                targetValue = if (controlsVisible) maxOf(subtitlePosition.bottomDp, (if (actionBarVisible) 104 else 12) + 150).dp else subtitlePosition.bottomDp.dp,
                 label = "subtitleLift",
             )
             Text(
@@ -742,40 +798,21 @@ fun VideoPlayerPage(
             }
         }
 
-        // Top bar: back, title, details, more.
-        AnimatedVisibility(
+        val infoLine = listOfNotNull(
+            if (videoW > 0f && videoH > 0f) "${videoW.toInt()}×${videoH.toInt()}" else null,
+            if (speed != 1f) speedLabel(speed) else null,
+            if (!cinematic.isOriginal) cinematic.label else null,
+        ).joinToString(" · ").ifEmpty { null }
+        PlayerTopBar(
             visible = controlsVisible,
-            enter = fadeIn(tween(fadeMs)),
-            exit = fadeOut(tween(fadeMs)),
-            modifier = Modifier.align(Alignment.TopCenter),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .displayCutoutPadding()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onClose) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
-                }
-                Text(
-                    text = item.displayName,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-                )
-                IconButton(onClick = { showDetails = true }) {
-                    Icon(Icons.Rounded.Info, contentDescription = "Details", tint = Color.White)
-                }
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "More options", tint = Color.White)
-                    }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            fadeMs = fadeMs,
+            slide = !reduceMotion,
+            title = item.displayName,
+            info = infoLine,
+            onClose = onClose,
+            onMore = { showMenu = true },
+            menu = {
+                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
                             text = { Text("Screen ratio") },
                             leadingIcon = { Icon(Icons.Rounded.AspectRatio, contentDescription = null) },
@@ -897,100 +934,138 @@ fun VideoPlayerPage(
                                 showDetails = true
                             },
                         )
-                    }
                 }
+            },
+            modifier = Modifier.align(Alignment.TopCenter),
+        )
+
+        modeToast?.let { text ->
+            PlayerPill(
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 84.dp),
+                announce = text,
+            ) {
+                Text(text, color = Color.White, style = MaterialTheme.typography.labelLarge)
             }
         }
 
-        // Centre transport: back 10s, play/pause, forward 10s.
+        // Centre transport: previous, rewind, play/pause, forward, next.
         if (active != null && ready) {
-            AnimatedVisibility(
+            PlayerTransport(
                 visible = (controlsVisible || !isPlaying) && !inPip,
-                enter = fadeIn(tween(fadeMs)),
-                exit = fadeOut(tween(fadeMs)),
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(20.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (queue.canPrev || queue.canNext) {
-                        TransportButton(Icons.Rounded.SkipPrevious, "Previous video", 40.dp, enabled = queue.canPrev) {
-                            queue.onPrev()
+                fadeMs = fadeMs,
+                isPlaying = isPlaying,
+                ended = ended,
+                rewindIcon = replayIcon(vs.seekIntervalSec),
+                forwardIcon = forwardIcon(vs.seekIntervalSec),
+                seekSeconds = vs.seekIntervalSec,
+                hasQueue = queue.canPrev || queue.canNext,
+                canPrev = queue.canPrev,
+                canNext = queue.canNext,
+                onPrev = queue.onPrev,
+                onRewind = {
+                    active.seekTo((active.currentPosition - vs.seekIntervalSec * 1000L).coerceAtLeast(0L))
+                    ended = false
+                    onInteraction()
+                },
+                onPlayPause = {
+                    when {
+                        ended -> {
+                            active.seekTo(0L)
+                            active.play()
                         }
+                        isPlaying -> active.pause()
+                        else -> active.play()
                     }
-                    TransportButton(replayIcon(vs.seekIntervalSec), "Back ${vs.seekIntervalSec} seconds", 48.dp) {
-                        active.seekTo((active.currentPosition - vs.seekIntervalSec * 1000L).coerceAtLeast(0L))
-                        ended = false
-                        onInteraction()
-                    }
-                    TransportButton(
-                        icon = when {
-                            ended -> Icons.Rounded.Replay
-                            isPlaying -> Icons.Rounded.Pause
-                            else -> Icons.Rounded.PlayArrow
-                        },
-                        description = when {
-                            ended -> "Replay"
-                            isPlaying -> "Pause"
-                            else -> "Play"
-                        },
-                        size = 68.dp,
-                    ) {
-                        when {
-                            ended -> {
-                                active.seekTo(0L)
-                                active.play()
-                            }
-                            isPlaying -> active.pause()
-                            else -> active.play()
-                        }
-                        onInteraction()
-                    }
-                    TransportButton(forwardIcon(vs.seekIntervalSec), "Forward ${vs.seekIntervalSec} seconds", 48.dp) {
-                        val limit = if (durationMs > 0) durationMs else Long.MAX_VALUE
-                        active.seekTo((active.currentPosition + vs.seekIntervalSec * 1000L).coerceAtMost(limit))
-                        onInteraction()
-                    }
-                    if (queue.canPrev || queue.canNext) {
-                        TransportButton(Icons.Rounded.SkipNext, "Next video", 40.dp, enabled = queue.canNext) {
-                            queue.onNext()
-                        }
-                    }
-                }
-            }
+                    if (vs.haptics) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onInteraction()
+                },
+                onForward = {
+                    val limit = if (durationMs > 0) durationMs else Long.MAX_VALUE
+                    active.seekTo((active.currentPosition + vs.seekIntervalSec * 1000L).coerceAtMost(limit))
+                    onInteraction()
+                },
+                onNext = queue.onNext,
+                modifier = Modifier.align(Alignment.Center),
+            )
         }
 
-        // Bottom: thin seek row with ratio shortcuts.
+        // Bottom panel: caption, control cluster, thin seek bar with scrub preview, times, chips.
         if (active != null && ready) {
-            AnimatedVisibility(
-                visible = controlsVisible,
-                enter = fadeIn(tween(fadeMs)),
-                exit = fadeOut(tween(fadeMs)),
-                modifier = Modifier.align(Alignment.BottomCenter),
-            ) {
-                SeekControls(
-                    positionMs = positionMs,
-                    durationMs = durationMs,
-                    isLandscape = isLandscape,
-                    fillActive = screenMode == ScreenMode.Fill,
-                    abRange = abRange,
-                    previewUri = item.uri,
-                    bottomInset = if (actionBarVisible) 104.dp else 16.dp,
-                    onSeek = { target ->
-                        active.seekTo(target)
-                        positionMs = target
-                        ended = false
+            val panelInset = if (actionBarVisible) 104.dp else 12.dp
+            val date = remember(item.dateTakenMillis) {
+                java.time.Instant.ofEpochMilli(item.dateTakenMillis).atZone(java.time.ZoneId.systemDefault())
+                    .format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM))
+            }
+            if (showVolume && controlsVisible) {
+                VolumeFlyout(
+                    onInteract = {
+                        volumeTick++
                         onInteraction()
                     },
-                    onDragging = { dragging = it },
-                    onToggleFitFill = {
-                        applyDisplay(if (screenMode == ScreenMode.Fill) ScreenMode.Fit else ScreenMode.Fill, preset)
-                        onInteraction()
-                    },
-                    onOpenRatio = { showRatioSheet = true },
-                    onToggleFullscreen = onToggleFullscreen,
+                    modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = panelInset + 236.dp),
                 )
             }
+            PlayerBottomPanel(
+                visible = controlsVisible,
+                fadeMs = fadeMs,
+                slide = !reduceMotion,
+                bottomInset = panelInset,
+                caption = listOfNotNull(item.albumName, date).joinToString(" · "),
+                positionMs = positionMs,
+                durationMs = durationMs,
+                abRange = abRange,
+                previewUri = item.uri,
+                videoAspect = if (videoW > 0f && videoH > 0f) videoW / videoH else 16f / 9f,
+                isLandscape = isLandscape,
+                onSeek = { target ->
+                    active.seekTo(target)
+                    positionMs = target
+                    ended = false
+                    onInteraction()
+                },
+                onDragging = { dragging = it },
+                onToggleFullscreen = onToggleFullscreen,
+                cluster = {
+                    GlassCircleButton(Icons.Rounded.VolumeUp, "Volume", {
+                        showVolume = !showVolume
+                        volumeTick++
+                        onInteraction()
+                    }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                    GlassCircleButton(Icons.Rounded.Subtitles, "Subtitles", { showTracksSheet = true }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                    GlassCircleButton(Icons.Rounded.Audiotrack, "Audio track", {
+                        cycleAudio()
+                        onInteraction()
+                    }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                    GlassCircleButton(
+                        icon = Icons.Rounded.AspectRatio,
+                        description = "Screen ratio ${screenMode.label}. Long press for presets",
+                        onClick = {
+                            val next = screenMode.next()
+                            applyDisplay(next, preset)
+                            toast(next.label.uppercase())
+                            onInteraction()
+                        },
+                        onLongClick = { showRatioSheet = true },
+                        size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion,
+                    )
+                    GlassCircleButton(Icons.Rounded.ZoomIn, "Zoom ${zoomLabel(zoom)}", {
+                        val next = nextZoomPreset(zoom)
+                        zoom = next
+                        if (next <= 1f) {
+                            panX = 0f
+                            panY = 0f
+                        }
+                        toast("ZOOM ${zoomLabel(next)}")
+                        onInteraction()
+                    }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
+                },
+                chips = {
+                    GlassChip("Info", onClick = { showDetails = true })
+                    GlassChip("Queue", onClick = queue.onShowQueue)
+                    GlassChip("Speed ${speedLabel(speed)}", onClick = { showSpeedSheet = true })
+                },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
         }
     }
 
@@ -1215,153 +1290,4 @@ private fun currentBrightness(context: Context): Float {
 private fun setBrightness(context: Context, level: Float) {
     val window = context.findActivity()?.window ?: return
     window.attributes = window.attributes.also { it.screenBrightness = level.coerceIn(0.01f, 1f) }
-}
-
-@Composable
-private fun TransportButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    size: Dp,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
-    IconButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier.size(size).clip(CircleShape).background(ScrimColor),
-    ) {
-        Icon(icon, contentDescription = description, tint = Color.White.copy(alpha = if (enabled) 1f else 0.35f), modifier = Modifier.size(size * 0.55f))
-    }
-}
-
-/** Slim, glass-free seek row: small times, a 2dp track with a tiny thumb, and ratio shortcuts. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SeekControls(
-    positionMs: Long,
-    durationMs: Long,
-    isLandscape: Boolean,
-    fillActive: Boolean,
-    abRange: AbRange,
-    previewUri: String,
-    bottomInset: Dp,
-    onSeek: (Long) -> Unit,
-    onDragging: (Boolean) -> Unit,
-    onToggleFitFill: () -> Unit,
-    onOpenRatio: () -> Unit,
-    onToggleFullscreen: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    var dragFraction by remember { mutableFloatStateOf(-1f) }
-    val dragging = dragFraction >= 0f
-    val fraction = if (durationMs > 0) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
-    val shown = if (dragging) dragFraction else fraction
-    val shownPosition = if (dragging) (dragFraction * durationMs).toLong() else positionMs
-    val timeStyle = MaterialTheme.typography.labelSmall
-    val dim = Color.White.copy(alpha = 0.85f)
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding()
-            .displayCutoutPadding()
-            .padding(bottom = bottomInset),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-    if (dragging && durationMs > 0) {
-        // Frame preview while scrubbing: one request per second of video.
-        val context = LocalContext.current
-        val seconds = (dragFraction * durationMs / 1000f).toLong()
-        val request = remember(previewUri, seconds) {
-            ImageRequest.Builder(context)
-                .data(previewUri)
-                .videoFrameMillis(seconds * 1000L)
-                .size(320, 180)
-                .build()
-        }
-        AsyncImage(
-            model = request,
-            contentDescription = "Seek preview at ${formatDuration(shownPosition)}",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .padding(bottom = 6.dp)
-                .size(width = 128.dp, height = 72.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(Color.Black),
-        )
-    }
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(text = formatDuration(shownPosition), style = timeStyle, color = dim)
-        Slider(
-            value = shown,
-            onValueChange = {
-                if (!dragging) onDragging(true)
-                dragFraction = it
-            },
-            onValueChangeFinished = {
-                if (dragging && durationMs > 0) onSeek((dragFraction * durationMs).toLong())
-                dragFraction = -1f
-                onDragging(false)
-            },
-            enabled = durationMs > 0,
-            thumb = { Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White)) },
-            track = {
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(2.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.28f)),
-                ) {
-                    val a = abRange.startMs
-                    if (a != null && durationMs > 0) {
-                        val start = (a.toFloat() / durationMs).coerceIn(0f, 1f)
-                        val end = ((abRange.endMs ?: a).toFloat() / durationMs).coerceIn(start, 1f)
-                        Row(Modifier.fillMaxSize()) {
-                            Spacer(Modifier.weight(maxOf(start, 0.0001f)))
-                            Box(Modifier.weight(maxOf(end - start, 0.006f)).fillMaxHeight().background(Color(0xFFFFC857)))
-                            Spacer(Modifier.weight(maxOf(1f - end, 0.0001f)))
-                        }
-                    }
-                    Box(
-                        Modifier
-                            .fillMaxWidth(shown)
-                            .fillMaxHeight()
-                            .background(Color.White.copy(alpha = if (abRange.startMs != null) 0.6f else 1f)),
-                    )
-                }
-            },
-            modifier = Modifier
-                .weight(1f)
-                .semantics { stateDescription = "${formatDuration(shownPosition)} of ${formatDuration(durationMs)}" },
-        )
-        Text(text = formatDuration(durationMs), style = timeStyle, color = dim)
-        SmallIcon(
-            icon = if (fillActive) Icons.Rounded.FitScreen else Icons.Rounded.Crop,
-            description = if (fillActive) "Fit to screen" else "Fill screen",
-            onClick = onToggleFitFill,
-        )
-        SmallIcon(Icons.Rounded.AspectRatio, "Screen ratio", onOpenRatio)
-        SmallIcon(
-            icon = if (isLandscape) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-            description = if (isLandscape) "Exit full screen" else "Full screen",
-            onClick = onToggleFullscreen,
-        )
-    }
-    }
-}
-
-@Composable
-private fun SmallIcon(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    onClick: () -> Unit,
-) {
-    IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) {
-        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(20.dp))
-    }
 }
