@@ -13,14 +13,19 @@ enum class ScreenMode(val label: String, val hint: String) {
 
 /** Frame shape presets. [ratio] is width / height; null keeps the video's own ratio. */
 enum class AspectPreset(val label: String, val ratio: Float?) {
-    Original("Original", null),
+    Original("Best fit", null),
     R16x9("16:9", 16f / 9f),
+    R16x10("16:10", 16f / 10f),
+    R4x3("4:3", 4f / 3f),
+    R5x4("5:4", 5f / 4f),
+    R1x1("1:1", 1f),
+    R221("2.21:1", 2.21f),
+    R235("2.35:1", 2.35f),
+    R239("2.39:1", 2.39f),
     R18x9("18:9", 18f / 9f),
     R195x9("19.5:9", 19.5f / 9f),
     R20x9("20:9", 20f / 9f),
     R21x9("21:9", 21f / 9f),
-    R4x3("4:3", 4f / 3f),
-    R1x1("1:1", 1f),
 }
 
 data class FrameSize(val width: Float, val height: Float)

@@ -312,6 +312,8 @@ fun VideoPlayerPage(
         }
     }
     var speed by remember(item.id) { mutableFloatStateOf(1f) }
+    // Holding a finger on the picture plays at 2x until it is lifted (Movie mode).
+    var holdFast by remember { mutableStateOf(false) }
     var indicator by remember { mutableStateOf<LevelIndicator?>(null) }
     var indicatorTick by remember { mutableIntStateOf(0) }
     var swipeSeek by remember { mutableStateOf<SwipeSeek?>(null) }
@@ -359,7 +361,9 @@ fun VideoPlayerPage(
             seekFlash = null
         }
     }
-    LaunchedEffect(player, speed, movieMode) { player?.setPlaybackParameters(PlaybackParameters(if (movieMode) speed else 1f)) }
+    LaunchedEffect(player, speed, movieMode, holdFast) {
+        player?.setPlaybackParameters(PlaybackParameters(if (movieMode && holdFast) 2f else if (movieMode) speed else 1f))
+    }
     // Leaving Movie mode drops its extras: zoom, A-B loop.
     LaunchedEffect(movieMode) {
         if (!movieMode) {
@@ -668,6 +672,20 @@ fun VideoPlayerPage(
                 .fillMaxSize()
             .pointerInput(gestures.doubleTapSeek, movieMode) {
                 detectTapGestures(
+                    onPress = {
+                        if (movieMode) {
+                            kotlinx.coroutines.coroutineScope {
+                                val timer = launch {
+                                    kotlinx.coroutines.delay(viewConfiguration.longPressTimeoutMillis + 150L)
+                                    holdFast = true
+                                    if (vs.haptics) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                                tryAwaitRelease()
+                                timer.cancel()
+                                holdFast = false
+                            }
+                        }
+                    },
                     onTap = { onToggleControls() },
                     onDoubleTap = { offset ->
                         val zone = tapZone(offset.x, size.width.toFloat())
@@ -842,6 +860,14 @@ fun VideoPlayerPage(
 
         // Brightness / volume level and double-tap seek feedback.
         indicator?.let { LevelPill(it, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp)) }
+        if (holdFast) {
+            PlayerPill(
+                modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp),
+                announce = "Playing at 2 times speed",
+            ) {
+                Text("2×  ▸▸", color = Color.White, style = MaterialTheme.typography.titleMedium)
+            }
+        }
         swipeSeek?.let { sw ->
             PlayerPill(
                 modifier = Modifier.align(Alignment.Center),
@@ -1184,7 +1210,9 @@ fun VideoPlayerPage(
                 cluster = if (movieMode) {
                     {
                         GlassCircleButton(Icons.Rounded.Subtitles, "Subtitles", { showTracksSheet = true }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
-                        GlassCircleButton(Icons.Rounded.Audiotrack, "Audio track", {
+                        GlassCircleButton(Icons.Rounded.Audiotrack, "Audio track. Long press to switch to the next one", {
+                            showTracksSheet = true
+                        }, onLongClick = {
                             cycleAudio()
                             onInteraction()
                         }, size = 44.dp, iconSize = 22.dp, plain = true, reduceMotion = reduceMotion)
