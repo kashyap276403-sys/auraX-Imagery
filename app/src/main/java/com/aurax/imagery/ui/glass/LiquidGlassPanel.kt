@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.aurax.imagery.ui.theme.AuraCyan
+import com.aurax.imagery.ui.theme.GlassFamily
 import com.aurax.imagery.ui.theme.GlassStyle
 import com.aurax.imagery.ui.theme.LocalGlassStyle
 import dev.chrisbanes.haze.ExperimentalHazeApi
@@ -56,8 +57,10 @@ fun BoxScope.LiquidBackdrop(
     val density = LocalDensity.current
     val tilt = LocalGlassTilt.current
     // One compiled shader per surface, reused for every frame. Null if AGSL compilation fails.
-    val shader = remember { runCatching { LiquidShader() }.getOrNull() }
-    val useShader = shader != null && !style.performanceMode
+    val isDrop = style.family == GlassFamily.WaterDrop
+    val shader = remember(isDrop) { if (isDrop) null else runCatching { LiquidShader() }.getOrNull() }
+    val dropShader = remember(isDrop) { if (isDrop) runCatching { WaterDropShader() }.getOrNull() else null }
+    val useShader = (shader != null || dropShader != null) && !style.performanceMode
     val radiusPx = with(density) { cornerRadius.toPx() }
 
     val fillAlpha = style.opacity.coerceIn(0f, MAX_GLASS_OPACITY)
@@ -77,16 +80,30 @@ fun BoxScope.LiquidBackdrop(
         layer = layer.graphicsLayer {
             if (size.minDimension <= 0f) return@graphicsLayer
             val t = tilt?.value
-            renderEffect = shader!!.effect(
-                width = size.width,
-                height = size.height,
-                radiusPx = radiusPx,
-                refraction = style.distortion,
-                edgeBrightness = style.edgeBrightness,
-                reflection = style.reflection,
-                tiltX = t?.x ?: 0f,
-                tiltY = t?.y ?: 0f,
-            )
+            renderEffect = if (dropShader != null) {
+                dropShader.effect(
+                    width = size.width,
+                    height = size.height,
+                    radiusPx = radiusPx,
+                    strength = style.waterDrop,
+                    refraction = style.distortion,
+                    edgeBrightness = style.edgeBrightness,
+                    gloss = style.reflection,
+                    tiltX = t?.x ?: 0f,
+                    tiltY = t?.y ?: 0f,
+                )
+            } else {
+                shader!!.effect(
+                    width = size.width,
+                    height = size.height,
+                    radiusPx = radiusPx,
+                    refraction = style.distortion,
+                    edgeBrightness = style.edgeBrightness,
+                    reflection = style.reflection,
+                    tiltX = t?.x ?: 0f,
+                    tiltY = t?.y ?: 0f,
+                )
+            }
         }
     }
 
@@ -130,9 +147,20 @@ fun LiquidGlassPanel(
             spotColor = AuraCyan.copy(alpha = (0.35f * style.glow).coerceIn(0f, 1f)),
         )
     }
-    val rim = remember(style.reflection, style.edgeBrightness, style.borderOpacity) {
+    val rim = remember(style.reflection, style.edgeBrightness, style.borderOpacity, style.family, style.waterDrop) {
         val a = (0.35f + 0.5f * style.edgeBrightness) * style.reflection.coerceAtLeast(0.2f) * style.borderOpacity
-        Brush.linearGradient(
+        if (style.family == GlassFamily.WaterDrop) {
+            // A wet rim: bright where the light lands, a faint glint on the far side, clear between.
+            val hi = (a * (1.1f + 0.5f * style.waterDrop)).coerceIn(0f, 1f)
+            Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = hi),
+                    Color.White.copy(alpha = 0.04f * style.borderOpacity),
+                    Color.White.copy(alpha = 0.06f * style.borderOpacity),
+                    Color.White.copy(alpha = (a * 0.7f).coerceIn(0f, 1f)),
+                ),
+            )
+        } else Brush.linearGradient(
             listOf(
                 Color.White.copy(alpha = a.coerceIn(0f, 1f)),
                 Color.White.copy(alpha = 0.05f * style.borderOpacity),

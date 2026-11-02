@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.aurax.imagery.ui.glass.LiquidGlassPanel
 import com.aurax.imagery.ui.glass.LocalHazeState
 import com.aurax.imagery.ui.theme.AuraCyan
+import com.aurax.imagery.ui.theme.GlassFamily
 import com.aurax.imagery.ui.theme.GlassStyle
 import com.aurax.imagery.ui.theme.LocalGlassStyle
 
@@ -101,6 +102,27 @@ fun GlassSurface(
                     endY = size.height * 0.5f,
                 ),
             )
+            if (style.family == GlassFamily.WaterDrop) {
+                // Water Drop without a backdrop to refract: a wet inner glow along the bottom edge
+                // and a small bright glint near the top-left, scaled by the Water Drop intensity.
+                val w = style.waterDrop
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.White.copy(alpha = (0.14f * w).coerceIn(0f, 1f))),
+                        startY = size.height * 0.55f,
+                        endY = size.height,
+                    ),
+                )
+                drawOval(
+                    brush = Brush.radialGradient(
+                        colors = listOf(Color.White.copy(alpha = (0.30f * w * style.reflection).coerceIn(0f, 1f)), Color.Transparent),
+                        center = androidx.compose.ui.geometry.Offset(size.width * 0.2f, size.height * 0.16f),
+                        radius = size.minDimension * 0.28f,
+                    ),
+                    topLeft = androidx.compose.ui.geometry.Offset(size.width * 0.04f, size.height * 0.02f),
+                    size = androidx.compose.ui.geometry.Size(size.width * 0.32f, size.height * 0.28f),
+                )
+            }
         }
     if (style.borderWidth > 0.dp) {
         surface = surface.border(style.borderWidth, borderBrush, shape)
