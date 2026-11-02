@@ -838,7 +838,20 @@ fun VideoPlayerPage(
                                 showRatioSheet = true
                             },
                         )
+                        if (zoom > 1f) {
                         DropdownMenuItem(
+                            text = { Text("Reset zoom") },
+                            leadingIcon = { Icon(Icons.Rounded.ZoomIn, contentDescription = null) },
+                            onClick = {
+                                showMenu = false
+                                zoom = 1f
+                                panX = 0f
+                                panY = 0f
+                                toast("ZOOM 100%")
+                            },
+                        )
+                    }
+                    DropdownMenuItem(
                         text = { Text("Zoom · ${zoomLabel(zoom)}") },
                         leadingIcon = { Icon(Icons.Rounded.ZoomIn, contentDescription = null) },
                         onClick = {

@@ -31,12 +31,20 @@ fun ImmersiveEffect(hideSystemBars: Boolean) {
         val window = view.context.findActivity()?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        // Let the picture run under a camera cutout in landscape instead of leaving a black strip beside it.
+        val oldCutout = window?.attributes?.layoutInDisplayCutoutMode
+        window?.attributes = window?.attributes?.also {
+            it.layoutInDisplayCutoutMode = android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
         if (hideSystemBars) {
             controller?.hide(WindowInsetsCompat.Type.systemBars())
         } else {
             controller?.show(WindowInsetsCompat.Type.systemBars())
         }
-        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+        onDispose {
+            controller?.show(WindowInsetsCompat.Type.systemBars())
+            if (oldCutout != null) window?.attributes = window.attributes.also { it.layoutInDisplayCutoutMode = oldCutout }
+        }
     }
 }
 
