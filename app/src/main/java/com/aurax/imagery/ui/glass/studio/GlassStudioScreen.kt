@@ -171,6 +171,11 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                                     mode.baseStyle().copy(
                                         family = current.family,
                                         waterDrop = current.waterDrop,
+                                        dockOpacity = current.dockOpacity,
+                                        dockBlur = current.dockBlur,
+                                        dockHeight = current.dockHeight,
+                                        dockLabels = current.dockLabels,
+                                        backgroundGlow = current.backgroundGlow,
                                         haptics = current.haptics,
                                         motionEffects = current.motionEffects,
                                         performanceMode = current.performanceMode,
@@ -195,6 +200,36 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                 GlassSlider("Reflection", style.reflection, { v -> settings.update { it.copy(reflection = v) } })
                 GlassSlider("Edge brightness", style.edgeBrightness, { v -> settings.update { it.copy(edgeBrightness = v) } })
                 GlassSlider("Border opacity", style.borderOpacity, { v -> settings.update { it.copy(borderOpacity = v) } })
+            }
+
+            GlassCard {
+                SectionTitle("Dock and background")
+                GlassSlider(
+                    label = "Dock transparency",
+                    value = 1f - style.dockOpacity,
+                    onValueChange = { v -> settings.update { it.copy(dockOpacity = 1f - v) } },
+                )
+                GlassSlider("Dock blur", style.dockBlur, { v -> settings.update { it.copy(dockBlur = v) } })
+                GlassSlider(
+                    label = "Dock height",
+                    value = style.dockHeight.value,
+                    onValueChange = { v -> settings.update { it.copy(dockHeight = v.dp) } },
+                    valueRange = 56f..88f,
+                    valueLabel = "${style.dockHeight.value.toInt()} dp",
+                )
+                SwitchRow("Dock labels", "Show the tab names under the icons", style.dockLabels) { on ->
+                    settings.update { it.copy(dockLabels = on) }
+                }
+                GlassSlider(
+                    label = "Background colour glow",
+                    value = style.backgroundGlow,
+                    onValueChange = { v -> settings.update { it.copy(backgroundGlow = v) } },
+                )
+                Text(
+                    text = "Turn the glow all the way down for a pure black background.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             GlassCard {
@@ -317,6 +352,11 @@ fun GlassStudioScreen(onBack: () -> Unit) {
                             current.mode.baseStyle().copy(
                                 family = current.family,
                                 waterDrop = current.waterDrop,
+                                dockOpacity = current.dockOpacity,
+                                dockBlur = current.dockBlur,
+                                dockHeight = current.dockHeight,
+                                dockLabels = current.dockLabels,
+                                backgroundGlow = current.backgroundGlow,
                                 haptics = current.haptics,
                                 motionEffects = current.motionEffects,
                                 performanceMode = current.performanceMode,

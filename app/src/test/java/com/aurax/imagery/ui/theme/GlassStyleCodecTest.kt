@@ -31,6 +31,16 @@ class GlassStyleCodecTest {
     }
 
     @Test
+    fun dockAndBackgroundSettingsRoundTripAndClamp() {
+        val style = GlassStyle.Natural.copy(dockOpacity = 0.2f, dockBlur = 0.8f, dockHeight = 60.dp, dockLabels = false, backgroundGlow = 0f)
+        assertEquals(style, GlassStyleCodec.decode(GlassStyleCodec.encode(style)))
+        val bad = GlassStyleCodec.decode("dh=500;bg=-3;do=9")
+        assertEquals(88f, bad.dockHeight.value, 0f)
+        assertEquals(0f, bad.backgroundGlow, 0f)
+        assertEquals(1f, bad.dockOpacity, 0f)
+    }
+
+    @Test
     fun damagedInputFallsBackToDefaults() {
         assertEquals(GlassStyle.Natural, GlassStyleCodec.decode(null))
         assertEquals(GlassStyle.Natural, GlassStyleCodec.decode("garbage;;==;x"))

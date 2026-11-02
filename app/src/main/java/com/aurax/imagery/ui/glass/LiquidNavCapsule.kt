@@ -146,7 +146,7 @@ fun LiquidNavCapsule(
         settle.intValue++
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxWidth().height(72.dp)) {
+    BoxWithConstraints(modifier = modifier.fillMaxWidth().height(style.dockHeight)) {
         val itemWidthPx = constraints.maxWidth / count.toFloat()
 
         // --- Black base capsule ------------------------------------------------------------
@@ -157,9 +157,9 @@ fun LiquidNavCapsule(
                 .let { m ->
                     if (hazeState != null) {
                         m.hazeEffect(state = hazeState) {
-                            blurRadius = 22.dp
+                            blurRadius = (4f + 36f * style.dockBlur).dp
                             noiseFactor = if (style.performanceMode) 0f else 0.03f
-                            tints = listOf(HazeTint(Color(0xFF020203).copy(alpha = 0.62f)))
+                            tints = listOf(HazeTint(Color(0xFF020203).copy(alpha = style.dockOpacity)))
                             backgroundColor = Color.Black
                         }
                     } else {
@@ -167,6 +167,13 @@ fun LiquidNavCapsule(
                     }
                 }
                 .border(1.dp, baseRim, baseShape),
+        )
+        // A faint sheen along the top of the capsule, so the dock reads as a glass slab and not a flat bar.
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(baseShape)
+                .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.10f * style.reflection), Color.Transparent), endY = 90f)),
         )
 
         // --- Floating glass lens -----------------------------------------------------------
@@ -266,7 +273,9 @@ fun LiquidNavCapsule(
                         tint = androidx.compose.material3.LocalContentColor.current,
                         modifier = Modifier.height(24.dp),
                     )
-                    Text(text = item.label, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, maxLines = 1)
+                    if (style.dockLabels) {
+                        Text(text = item.label, color = MaterialTheme.colorScheme.onSurface, fontSize = 11.sp, maxLines = 1)
+                    }
                 }
             }
         }

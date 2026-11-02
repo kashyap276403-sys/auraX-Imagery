@@ -62,7 +62,7 @@ fun AuraXRoot() {
     Box(modifier = Modifier.fillMaxSize()) {
         AuraBackground(modifier = Modifier.hazeSource(hazeState)) {
             // 72dp bar + 12dp bottom margin + breathing room; screens add this as bottom padding.
-            CompositionLocalProvider(LocalFloatingBarInset provides 108.dp) {
+            CompositionLocalProvider(LocalFloatingBarInset provides style.dockHeight + 36.dp) {
                 AuraNavHost(navController = navController, modifier = Modifier.fillMaxSize())
             }
         }

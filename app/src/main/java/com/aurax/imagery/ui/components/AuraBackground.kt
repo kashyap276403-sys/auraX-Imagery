@@ -23,6 +23,7 @@ fun AuraBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val glow = com.aurax.imagery.ui.theme.LocalGlassStyle.current.backgroundGlow
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -30,14 +31,14 @@ fun AuraBackground(
             .drawBehind {
                 drawRect(
                     brush = Brush.radialGradient(
-                        colors = listOf(AuraCyan.copy(alpha = 0.16f), Color.Transparent),
+                        colors = listOf(AuraCyan.copy(alpha = 0.16f * glow), Color.Transparent),
                         center = Offset(size.width * 0.15f, size.height * 0.08f),
                         radius = size.maxDimension * 0.55f,
                     ),
                 )
                 drawRect(
                     brush = Brush.radialGradient(
-                        colors = listOf(AuraViolet.copy(alpha = 0.14f), Color.Transparent),
+                        colors = listOf(AuraViolet.copy(alpha = 0.14f * glow), Color.Transparent),
                         center = Offset(size.width * 0.9f, size.height * 0.85f),
                         radius = size.maxDimension * 0.6f,
                     ),

@@ -35,6 +35,14 @@ data class GlassStyle(
     val waterDrop: Float = 0.6f,
     /** Scales the opacity of every glass border and rim, 0..1. 1 keeps the original look. */
     val borderOpacity: Float = 1f,
+    /** Darkness of the dock's base capsule, 0..1. Lower is clearer glass. */
+    val dockOpacity: Float = 0.40f,
+    /** Blur behind the dock, 0..1. */
+    val dockBlur: Float = 0.5f,
+    val dockHeight: Dp = 72.dp,
+    val dockLabels: Boolean = true,
+    /** Strength of the cyan and violet colour washes behind the app, 0..1. 0 is pure black. */
+    val backgroundGlow: Float = 1f,
     /** Backdrop blur strength, 0..1. */
     val blur: Float = 0.6f,
     /** Opacity of the glass fill, 0..1 (lower = more transparent). */
