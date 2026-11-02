@@ -179,8 +179,8 @@ fun GlassCircleButton(
     val source = remember { MutableInteractionSource() }
     val pressed by source.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed && !reduceMotion) 0.9f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        targetValue = if (pressed && !reduceMotion) 0.94f else 1f,
+        animationSpec = com.aurax.imagery.ui.theme.AuraMotion.press(),
         label = "press",
     )
     Box(
@@ -208,7 +208,7 @@ fun GlassCircleButton(
                 onClickLabel = description,
                 onLongClick = onLongClick,
                 onClick = {
-                    fx.launchIn(dropScope, if (vanish) 0.88f else 0.92f)
+                    fx.launchIn(dropScope, if (vanish) 0.92f else 0.95f)
                     onClick()
                 },
             )

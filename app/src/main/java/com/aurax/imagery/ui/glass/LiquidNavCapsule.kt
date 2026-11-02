@@ -112,7 +112,7 @@ fun LiquidNavCapsule(
         if (reducedMotion) {
             position.snapTo(target)
         } else {
-            position.animateTo(target, spring(dampingRatio = 0.58f, stiffness = 220f * speed))
+            position.animateTo(target, spring(dampingRatio = 0.78f, stiffness = 260f * speed))
         }
     }
 

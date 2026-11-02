@@ -148,8 +148,8 @@ private fun MediaThumbnail(
     val pressed by source.collectIsPressedAsState()
     // Selected shrinks the picture; a press dips it a little and it springs back, like pressing a drop of water.
     val scale by animateFloatAsState(
-        targetValue = if (selected) 0.86f else if (pressed) 0.93f else 1f,
-        animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.5f, stiffness = 400f),
+        targetValue = if (selected) 0.86f else if (pressed) 0.95f else 1f,
+        animationSpec = com.aurax.imagery.ui.theme.AuraMotion.press(),
         label = "thumbScale",
     )
 

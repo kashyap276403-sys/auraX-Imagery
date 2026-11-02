@@ -1,8 +1,6 @@
 package com.aurax.imagery.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.IconButton
@@ -13,7 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Brush
+import com.aurax.imagery.ui.theme.AuraMotion
 import androidx.compose.ui.graphics.graphicsLayer
 import com.aurax.imagery.ui.glass.rememberReducedMotion
 import com.aurax.imagery.ui.theme.LocalGlassStyle
@@ -22,36 +21,34 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The tap animation used on buttons across the app: a quick small dip and a soft spring back, with a
- * faint water ring spreading out. Kept subtle on purpose; the button never disappears.
- *
- * It is switched off when the system's "remove animations" is on or Motion effects is off in
- * Glass Studio. All values live in [Animatable]s read inside draw/graphics lambdas, so playing it
- * redraws the button only and never recomposes anything.
+ * Tap feedback used on buttons across the app. The button eases in to a slightly smaller size and
+ * a soft halo of light blooms behind it and fades, then it settles back with a gentle spring: no
+ * bounce, no disappearing. Off when the system's "remove animations" is on or Motion effects is
+ * off in Glass Studio. Values live in [Animatable]s read in draw/graphics lambdas, so playing it
+ * never recomposes anything.
  */
 class DropFx internal constructor(private val enabled: Boolean) {
-    /** 1 = normal size. Dips toward [play]'s floor and springs back. */
+    /** 1 = normal size. */
     val scale = Animatable(1f)
 
-    /** 0..1 progress of the water rings; 1 means finished, nothing is drawn. */
+    /** 0..1 progress of the halo; 1 means finished and nothing is drawn. */
     val ring = Animatable(1f)
 
-    /** [floor] is how small the button gets: 0 makes it vanish, 0.8 is just a dip. */
-    suspend fun play(floor: Float = 0.88f) {
+    suspend fun play(floor: Float = 0.92f) {
         if (!enabled) return
         coroutineScope {
             launch {
                 ring.snapTo(0f)
-                ring.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
+                ring.animateTo(1f, tween(520, easing = AuraMotion.Enter))
             }
             launch {
-                scale.animateTo(floor, tween(70, easing = FastOutSlowInEasing))
-                scale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 500f))
+                scale.animateTo(floor, tween(90, easing = AuraMotion.Enter))
+                scale.animateTo(1f, AuraMotion.settle())
             }
         }
     }
 
-    fun launchIn(scope: CoroutineScope, floor: Float = 0.88f) {
+    fun launchIn(scope: CoroutineScope, floor: Float = 0.92f) {
         scope.launch { play(floor) }
     }
 }
@@ -71,19 +68,21 @@ fun Modifier.dropScale(fx: DropFx): Modifier = graphicsLayer {
     scaleY = s
 }
 
-/** Two water rings spreading from the centre. Draws outside the node's bounds, so keep it off clipped parents. */
+/** A soft halo that blooms from the centre and fades. Draws outside the node's bounds, so keep it off clipped parents. */
 fun Modifier.dropRing(fx: DropFx, color: Color = Color.White): Modifier = drawBehind {
     val p = fx.ring.value
     if (p >= 1f) return@drawBehind
     val base = size.minDimension / 2f
     val centre = Offset(size.width / 2f, size.height / 2f)
-    // A soft droplet that swells and fades behind the button.
-    drawCircle(color.copy(alpha = 0.08f * (1f - p)), radius = base * (0.5f + 0.9f * p), center = centre)
+    val radius = base * (0.9f + 0.55f * p)
     drawCircle(
-        color.copy(alpha = 0.32f * (1f - p)),
-        radius = base * (0.55f + 1.15f * p),
+        brush = Brush.radialGradient(
+            colors = listOf(color.copy(alpha = 0.20f * (1f - p)), color.copy(alpha = 0.10f * (1f - p)), Color.Transparent),
+            center = centre,
+            radius = radius,
+        ),
+        radius = radius,
         center = centre,
-        style = Stroke(width = (3f * (1f - p)).coerceAtLeast(0.5f) * density),
     )
 }
 

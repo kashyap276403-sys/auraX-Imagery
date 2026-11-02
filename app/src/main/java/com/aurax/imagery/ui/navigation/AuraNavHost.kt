@@ -5,7 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.core.spring
+import com.aurax.imagery.ui.theme.AuraMotion
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
@@ -47,12 +47,12 @@ fun AuraNavHost(
         // Tab to tab: slides a little in the direction of travel while cross-fading. Other screens fade + scale.
         enterTransition = {
             val dir = tabDirection(initialState.destination.route, targetState.destination.route)
-            if (dir != 0) fadeIn(tween(300)) + slideInHorizontally(tween(340)) { it / 7 * dir }
+            if (dir != 0) fadeIn(tween(320, easing = AuraMotion.Enter)) + slideInHorizontally(tween(420, easing = AuraMotion.Enter)) { it / 14 * dir }
             else fadeIn(tween(280)) + scaleIn(initialScale = 0.97f, animationSpec = tween(280))
         },
         exitTransition = {
             val dir = tabDirection(initialState.destination.route, targetState.destination.route)
-            if (dir != 0) fadeOut(tween(180)) + slideOutHorizontally(tween(340)) { -it / 7 * dir }
+            if (dir != 0) fadeOut(tween(160, easing = AuraMotion.Exit)) + slideOutHorizontally(tween(300, easing = AuraMotion.Exit)) { -it / 20 * dir }
             else fadeOut(tween(160))
         },
         popEnterTransition = { fadeIn(tween(280)) + scaleIn(initialScale = 0.97f, animationSpec = tween(280)) },
@@ -107,10 +107,10 @@ fun AuraNavHost(
             ),
             // The picture opens with a soft springy zoom and closes by settling back, instead of a plain fade.
             enterTransition = {
-                fadeIn(tween(200)) + scaleIn(initialScale = 0.82f, animationSpec = spring(dampingRatio = 0.82f, stiffness = 380f))
+                fadeIn(tween(220, easing = AuraMotion.Enter)) + scaleIn(initialScale = 0.9f, animationSpec = tween(420, easing = AuraMotion.Enter))
             },
             popExitTransition = {
-                fadeOut(tween(180)) + scaleOut(targetScale = 0.88f, animationSpec = spring(dampingRatio = 0.9f, stiffness = 450f))
+                fadeOut(tween(200, easing = AuraMotion.Exit)) + scaleOut(targetScale = 0.94f, animationSpec = tween(260, easing = AuraMotion.Exit))
             },
         ) { entry ->
             val args = entry.arguments

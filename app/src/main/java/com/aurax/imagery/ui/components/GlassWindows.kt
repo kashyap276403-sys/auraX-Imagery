@@ -101,17 +101,17 @@ fun GlassDropdownMenu(
         containerColor = style.windowColor(),
         border = if (style.borderWidth > 0.dp) BorderStroke(style.borderWidth, style.windowRim()) else null,
     ) {
-        // Opens like a drop landing: grows from the top-right corner (where the three-dot button is) with a springy overshoot.
+        // Opens from the top-right corner (where the three-dot button is): fades in while growing the last 10%, no bounce.
         val reduced = rememberReducedMotion()
         val open = remember { Animatable(if (reduced || !style.motionEffects) 1f else 0f) }
-        LaunchedEffect(Unit) { if (open.value < 1f) open.animateTo(1f, spring(dampingRatio = 0.58f, stiffness = 420f)) }
+        LaunchedEffect(Unit) { if (open.value < 1f) open.animateTo(1f, com.aurax.imagery.ui.theme.AuraMotion.settle()) }
         Column(
             Modifier.graphicsLayer {
                 val v = open.value
-                val s = 0.8f + 0.2f * v
+                val s = 0.9f + 0.1f * v
                 scaleX = s
                 scaleY = s
-                alpha = (v * 1.6f).coerceIn(0f, 1f)
+                alpha = (v * 2.2f).coerceIn(0f, 1f)
                 transformOrigin = TransformOrigin(1f, 0f)
             },
         ) { content() }
