@@ -7,9 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitHorizontalTouchSlopOrCancellation
 import androidx.compose.foundation.gestures.horizontalDrag
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -38,6 +36,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -206,22 +205,38 @@ fun LiquidNavCapsule(
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
                         pressed = true
-                        val slop = awaitHorizontalTouchSlopOrCancellation(down.id) { change, _ -> change.consume() }
-                        if (slop != null) {
+                        // Watch the pointer ourselves: an up before the touch slop is a tap. (The old code
+                        // waited for a *second* up after the slop check had already seen the first, so a
+                        // tap only registered on the next touch.)
+                        var dragStarted = false
+                        var tapped = false
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            if (change.changedToUpIgnoreConsumed()) {
+                                tapped = true
+                                break
+                            }
+                            if (change.isConsumed) break
+                            if (abs(change.position.x - down.position.x) > viewConfiguration.touchSlop) {
+                                dragStarted = true
+                                break
+                            }
+                        }
+                        if (tapped) {
+                            commit((down.position.x / itemWidthPx).toInt().coerceIn(0, count - 1))
+                        } else if (dragStarted) {
                             // Drag: the lens follows the finger, then settles on the nearest tab.
                             dragging = true
                             var target = (down.position.x / itemWidthPx - 0.5f).coerceIn(0f, count - 1f)
                             scope.launch { position.snapTo(target) }
-                            horizontalDrag(slop.id) { change ->
+                            horizontalDrag(down.id) { change ->
                                 change.consume()
                                 target = (change.position.x / itemWidthPx - 0.5f).coerceIn(0f, count - 1f)
                                 scope.launch { position.snapTo(target) }
                             }
                             dragging = false
                             commit(target.roundToInt().coerceIn(0, count - 1))
-                        } else {
-                            val up = waitForUpOrCancellation()
-                            if (up != null) commit((down.position.x / itemWidthPx).toInt().coerceIn(0, count - 1))
                         }
                         pressed = false
                     }

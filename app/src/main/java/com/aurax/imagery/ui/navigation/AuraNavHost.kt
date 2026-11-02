@@ -4,6 +4,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -40,8 +42,17 @@ fun AuraNavHost(
         navController = navController,
         startDestination = AuraDestination.Photos.route,
         modifier = modifier,
-        enterTransition = { fadeIn(tween(280)) + scaleIn(initialScale = 0.97f, animationSpec = tween(280)) },
-        exitTransition = { fadeOut(tween(160)) },
+        // Tab to tab: slides a little in the direction of travel while cross-fading. Other screens fade + scale.
+        enterTransition = {
+            val dir = tabDirection(initialState.destination.route, targetState.destination.route)
+            if (dir != 0) fadeIn(tween(300)) + slideInHorizontally(tween(340)) { it / 7 * dir }
+            else fadeIn(tween(280)) + scaleIn(initialScale = 0.97f, animationSpec = tween(280))
+        },
+        exitTransition = {
+            val dir = tabDirection(initialState.destination.route, targetState.destination.route)
+            if (dir != 0) fadeOut(tween(180)) + slideOutHorizontally(tween(340)) { -it / 7 * dir }
+            else fadeOut(tween(160))
+        },
         popEnterTransition = { fadeIn(tween(280)) + scaleIn(initialScale = 0.97f, animationSpec = tween(280)) },
         popExitTransition = { fadeOut(tween(160)) },
     ) {
@@ -115,4 +126,12 @@ fun AuraNavHost(
             )
         }
     }
+}
+
+/** +1 when moving to a tab on the right, -1 to the left, 0 when either side is not a dock tab. */
+internal fun tabDirection(from: String?, to: String?): Int {
+    val tabs = AuraDestination.entries.map { it.route }
+    val a = tabs.indexOf(from)
+    val b = tabs.indexOf(to)
+    return if (a < 0 || b < 0 || a == b) 0 else if (b > a) 1 else -1
 }
