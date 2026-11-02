@@ -334,6 +334,7 @@ fun ThinSlider(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     dimTrack: Boolean = false,
+    dragging: Boolean = false,
     overlay: @Composable androidx.compose.foundation.layout.BoxScope.() -> Unit = {},
 ) {
     Slider(
@@ -341,14 +342,19 @@ fun ThinSlider(
         onValueChange = onValueChange,
         onValueChangeFinished = onValueChangeFinished,
         enabled = enabled,
-        thumb = { Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White)) },
+        // Reference look: a rounded bar with no visible knob at rest; the bar thickens and a knob appears while dragging.
+        thumb = {
+            val knob by androidx.compose.animation.core.animateDpAsState(if (dragging) 16.dp else 0.dp, tween(120), label = "knob")
+            Box(Modifier.size(knob).clip(CircleShape).background(Color.White))
+        },
         track = {
+            val thick by androidx.compose.animation.core.animateDpAsState(if (dragging) 8.dp else 5.dp, tween(120), label = "thick")
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(2.dp)
+                    .height(thick)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.28f)),
+                    .background(Color.White.copy(alpha = 0.32f)),
             ) {
                 overlay()
                 Box(
@@ -477,6 +483,7 @@ fun PlayerBottomPanel(
                         },
                         enabled = durationMs > 0,
                         dimTrack = abRange.startMs != null,
+                        dragging = dragging,
                         overlay = {
                             val a = abRange.startMs
                             if (a != null && durationMs > 0) {
