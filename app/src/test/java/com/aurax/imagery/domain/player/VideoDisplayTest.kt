@@ -1,6 +1,7 @@
 package com.aurax.imagery.domain.player
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VideoDisplayTest {
@@ -70,7 +71,8 @@ class VideoDisplayTest {
     }
 
     @Test fun ratioCycleOrder() {
-        assertEquals(ScreenMode.Fill, ScreenMode.Fit.next())
+        assertEquals(ScreenMode.Best, ScreenMode.Fit.next())
+        assertEquals(ScreenMode.Fill, ScreenMode.Best.next())
         assertEquals(ScreenMode.Original, ScreenMode.Fill.next())
         assertEquals(ScreenMode.Stretch, ScreenMode.Original.next())
         assertEquals(ScreenMode.Fit, ScreenMode.Stretch.next())
@@ -83,5 +85,20 @@ class VideoDisplayTest {
         assertEquals(1f, nextZoomPreset(3.2f), d)
         assertEquals(2f, nextZoomPreset(1.6f), d)
         assertEquals("150%", zoomLabel(1.5f))
+    }
+
+    @Test
+    fun bestViewFillsWhenLittleIsCroppedAndStopsEarlyOtherwise() {
+        // 16:9 video on a 20:9 phone: Fill would crop ~19% of the height, so Best stops at the 12% limit.
+        val fit = computeFrame(2000f, 900f, 1920f, 1080f, ScreenMode.Fit, null)
+        val best = computeFrame(2000f, 900f, 1920f, 1080f, ScreenMode.Best, null)
+        assertEquals(fit.width / fit.height, best.width / best.height, 0.001f)
+        assertEquals(fit.width / (1f - BEST_VIEW_MAX_CROP), best.width, 0.5f)
+        // 16:9 video on a 17:9 screen: Fill crops only ~5%, so Best fills completely.
+        val fill = computeFrame(1700f, 900f, 1920f, 1080f, ScreenMode.Fill, null)
+        val best2 = computeFrame(1700f, 900f, 1920f, 1080f, ScreenMode.Best, null)
+        assertEquals(fill.width, best2.width, 0.5f)
+        // Never smaller than Fit.
+        assertTrue(best.width >= fit.width)
     }
 }

@@ -618,7 +618,7 @@ fun VideoPlayerPage(
         val containerH = constraints.maxHeight.toFloat()
         // Normal mode always shows the whole picture (Fit); screen mode, ratio and zoom are Movie mode features.
         val modeNow = if (movieMode) screenMode else ScreenMode.Fit
-        val ratio = if (movieMode) preset.ratio.takeIf { screenMode == ScreenMode.Fit || screenMode == ScreenMode.Fill } else null
+        val ratio = if (movieMode) preset.ratio.takeIf { screenMode == ScreenMode.Fit || screenMode == ScreenMode.Fill || screenMode == ScreenMode.Best } else null
         val frame = computeFrame(containerW, containerH, videoW, videoH, modeNow, ratio)
         val frameWDp by animateDpAsState(with(density) { frame.width.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameW")
         val frameHDp by animateDpAsState(with(density) { frame.height.toDp() }, tween(if (reduceMotion) 0 else 240), label = "frameH")

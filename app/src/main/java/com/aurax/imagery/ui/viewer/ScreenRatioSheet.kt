@@ -42,7 +42,7 @@ fun ScreenRatioSheet(
     onZoom: (Float) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val presetApplies = mode == ScreenMode.Fit || mode == ScreenMode.Fill
+    val presetApplies = mode == ScreenMode.Fit || mode == ScreenMode.Fill || mode == ScreenMode.Best
     LiquidBottomSheet(onDismiss = onDismiss) {
         Text("Screen ratio", style = MaterialTheme.typography.titleLarge)
         Text(

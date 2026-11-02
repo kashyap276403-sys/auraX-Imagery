@@ -5,8 +5,9 @@ import kotlin.math.min
 
 /** How the video frame is laid out inside the player area. */
 enum class ScreenMode(val label: String, val hint: String) {
-    Fit("Fit", "Whole video, never cropped"),
-    Fill("Fill", "Covers the screen, edges may be cropped"),
+    Fit("Fit screen", "The movie in its own format, whole picture, never cropped"),
+    Best("Best view", "Fills the screen automatically, cropping only a sliver at most"),
+    Fill("Fill screen", "Covers the screen, edges may be cropped"),
     Original("Original", "Native size, never enlarged"),
     Stretch("Stretch", "Fills the screen, picture may be distorted"),
 }
@@ -29,6 +30,9 @@ enum class AspectPreset(val label: String, val ratio: Float?) {
 }
 
 data class FrameSize(val width: Float, val height: Float)
+
+/** Best view never crops more than this share of the picture along the cropped side. */
+const val BEST_VIEW_MAX_CROP = 0.12f
 
 const val MIN_ZOOM = 1f
 const val MAX_ZOOM = 4f
@@ -57,6 +61,14 @@ fun computeFrame(
         ScreenMode.Fit ->
             if (containerWidth / containerHeight > aspect) FrameSize(containerHeight * aspect, containerHeight)
             else FrameSize(containerWidth, containerWidth / aspect)
+        ScreenMode.Best -> {
+            val fit = computeFrame(containerWidth, containerHeight, videoWidth, videoHeight, ScreenMode.Fit, ratio)
+            val fill = computeFrame(containerWidth, containerHeight, videoWidth, videoHeight, ScreenMode.Fill, ratio)
+            // Scale up from Fit toward Fill, but stop once more than BEST_VIEW_MAX_CROP of the picture would be lost.
+            val fillScale = if (fit.width > 0f) fill.width / fit.width else 1f
+            val k = min(fillScale, 1f / (1f - BEST_VIEW_MAX_CROP))
+            FrameSize(fit.width * k, fit.height * k)
+        }
         ScreenMode.Fill ->
             if (containerWidth / containerHeight > aspect) FrameSize(containerWidth, containerWidth / aspect)
             else FrameSize(containerHeight * aspect, containerHeight)
