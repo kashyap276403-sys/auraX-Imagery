@@ -344,7 +344,7 @@ fun VideoPlayerPage(
             cueText = ""
         } else {
             params.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
-                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, option.trackIndex))
+                .setOverrideForType(TrackSelectionOverride(group!!.mediaTrackGroup, option.trackIndex))
         }
         active.trackSelectionParameters = params.build()
     }
