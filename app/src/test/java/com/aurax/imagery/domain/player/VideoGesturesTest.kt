@@ -42,4 +42,22 @@ class VideoGesturesTest {
         assertEquals(OrientationLock.Portrait, OrientationLock.Auto.next())
         assertEquals(OrientationLock.Auto, OrientationLock.Landscape.next())
     }
+
+    @Test
+    fun swipeSeekScalesWithWidthAndStaysInside() {
+        // 2 h film: a quarter is 30 min, capped at 10 min per full-width swipe.
+        assertEquals(300_000L + 300_000L, swipeSeekTarget(300_000L, 540f, 1080f, 7_200_000L))
+        // 1 min clip: 60 s span, so half a width is 30 s.
+        assertEquals(40_000L, swipeSeekTarget(10_000L, 540f, 1080f, 60_000L))
+        assertEquals(0L, swipeSeekTarget(5_000L, -1080f, 1080f, 60_000L))
+        assertEquals(60_000L, swipeSeekTarget(50_000L, 1080f, 1080f, 60_000L))
+        assertEquals(7L, swipeSeekTarget(7L, 100f, 0f, 60_000L))
+    }
+
+    @Test
+    fun swipeDeltaLabelIsSignedMinutesAndSeconds() {
+        assertEquals("+0:23", swipeDeltaLabel(23_000L))
+        assertEquals("-1:05", swipeDeltaLabel(-65_000L))
+        assertEquals("+0:00", swipeDeltaLabel(0L))
+    }
 }

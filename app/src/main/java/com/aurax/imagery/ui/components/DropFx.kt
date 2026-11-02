@@ -22,8 +22,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 
 /**
- * The tap animation used on buttons across the app: the button shrinks and fades away, then pops
- * back with a springy overshoot while two water-drop rings spread out from it and fade.
+ * The tap animation used on buttons across the app: a quick small dip and a soft spring back, with a
+ * faint water ring spreading out. Kept subtle on purpose; the button never disappears.
  *
  * It is switched off when the system's "remove animations" is on or Motion effects is off in
  * Glass Studio. All values live in [Animatable]s read inside draw/graphics lambdas, so playing it
@@ -37,21 +37,21 @@ class DropFx internal constructor(private val enabled: Boolean) {
     val ring = Animatable(1f)
 
     /** [floor] is how small the button gets: 0 makes it vanish, 0.8 is just a dip. */
-    suspend fun play(floor: Float = 0f) {
+    suspend fun play(floor: Float = 0.88f) {
         if (!enabled) return
         coroutineScope {
             launch {
                 ring.snapTo(0f)
-                ring.animateTo(1f, tween(620, easing = FastOutSlowInEasing))
+                ring.animateTo(1f, tween(380, easing = FastOutSlowInEasing))
             }
             launch {
-                scale.animateTo(floor, tween(110, easing = FastOutSlowInEasing))
-                scale.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 320f))
+                scale.animateTo(floor, tween(70, easing = FastOutSlowInEasing))
+                scale.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = 500f))
             }
         }
     }
 
-    fun launchIn(scope: CoroutineScope, floor: Float = 0f) {
+    fun launchIn(scope: CoroutineScope, floor: Float = 0.88f) {
         scope.launch { play(floor) }
     }
 }
@@ -69,7 +69,6 @@ fun Modifier.dropScale(fx: DropFx): Modifier = graphicsLayer {
     val s = fx.scale.value
     scaleX = s
     scaleY = s
-    alpha = (s / 0.6f).coerceIn(0f, 1f)
 }
 
 /** Two water rings spreading from the centre. Draws outside the node's bounds, so keep it off clipped parents. */
@@ -79,22 +78,13 @@ fun Modifier.dropRing(fx: DropFx, color: Color = Color.White): Modifier = drawBe
     val base = size.minDimension / 2f
     val centre = Offset(size.width / 2f, size.height / 2f)
     // A soft droplet that swells and fades behind the button.
-    drawCircle(color.copy(alpha = 0.16f * (1f - p)), radius = base * (0.5f + 0.9f * p), center = centre)
+    drawCircle(color.copy(alpha = 0.08f * (1f - p)), radius = base * (0.5f + 0.9f * p), center = centre)
     drawCircle(
-        color.copy(alpha = 0.55f * (1f - p)),
+        color.copy(alpha = 0.32f * (1f - p)),
         radius = base * (0.55f + 1.15f * p),
         center = centre,
         style = Stroke(width = (3f * (1f - p)).coerceAtLeast(0.5f) * density),
     )
-    val q = ((p - 0.2f) / 0.8f).coerceIn(0f, 1f)
-    if (q > 0f && q < 1f) {
-        drawCircle(
-            color.copy(alpha = 0.35f * (1f - q)),
-            radius = base * (0.55f + 1.15f * q),
-            center = centre,
-            style = Stroke(width = (2f * (1f - q)).coerceAtLeast(0.5f) * density),
-        )
-    }
 }
 
 /** Drop-in replacement for [IconButton] with the water-drop tap animation. */

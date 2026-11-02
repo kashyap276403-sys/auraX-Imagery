@@ -24,6 +24,24 @@ fun seekTarget(positionMs: Long, deltaMs: Long, durationMs: Long): Long {
 }
 
 /**
+ * Target position of a horizontal swipe-to-seek, VLC style. A swipe across the whole [widthPx] moves
+ * a quarter of the video, but never less than 60 s or more than 10 min, so short clips stay precise
+ * and long films are still reachable. Result stays inside the video.
+ */
+fun swipeSeekTarget(startMs: Long, dragPx: Float, widthPx: Float, durationMs: Long): Long {
+    if (widthPx <= 0f) return startMs
+    val span = if (durationMs > 0L) (durationMs / 4).coerceIn(60_000L, 600_000L) else 60_000L
+    return seekTarget(startMs, (dragPx / widthPx * span).toLong(), durationMs)
+}
+
+/** "+0:23" or "-1:05" for the swipe-seek pill; whole seconds. */
+fun swipeDeltaLabel(deltaMs: Long): String {
+    val total = kotlin.math.abs(deltaMs) / 1000
+    val sign = if (deltaMs < 0) "-" else "+"
+    return "$sign${total / 60}:${(total % 60).toString().padStart(2, '0')}"
+}
+
+/**
  * A 0..1 level (brightness or volume) after a vertical drag. Dragging up (negative [dragPx]) raises
  * it; a full swipe over [extentPx] changes it by 1.
  */

@@ -191,7 +191,6 @@ fun GlassCircleButton(
                 val d = fx.scale.value
                 scaleX = scale * d
                 scaleY = scale * d
-                alpha = if (vanish) (fx.scale.value / 0.6f).coerceIn(0f, 1f) else 1f
             }
             .clip(CircleShape)
             .then(
@@ -209,7 +208,7 @@ fun GlassCircleButton(
                 onClickLabel = description,
                 onLongClick = onLongClick,
                 onClick = {
-                    fx.launchIn(dropScope, if (vanish) 0f else 0.78f)
+                    fx.launchIn(dropScope, if (vanish) 0.88f else 0.92f)
                     onClick()
                 },
             )

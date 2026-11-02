@@ -25,6 +25,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.aurax.imagery.domain.player.CinematicMode
+import com.aurax.imagery.domain.player.swipeDeltaLabel
+import com.aurax.imagery.domain.player.swipeSeekTarget
 import com.aurax.imagery.domain.player.VideoPlayerSettings
 import com.aurax.imagery.ui.glass.rememberReducedMotion
 import android.content.Intent
@@ -78,7 +80,7 @@ import android.provider.Settings
 import android.view.TextureView
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
 import androidx.compose.foundation.gestures.calculatePan
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.gestures.verticalDrag
@@ -312,6 +314,7 @@ fun VideoPlayerPage(
     var speed by remember(item.id) { mutableFloatStateOf(1f) }
     var indicator by remember { mutableStateOf<LevelIndicator?>(null) }
     var indicatorTick by remember { mutableIntStateOf(0) }
+    var swipeSeek by remember { mutableStateOf<SwipeSeek?>(null) }
     var seekFlash by remember { mutableStateOf<TapZone?>(null) }
     var flashTick by remember { mutableIntStateOf(0) }
     val gestures by container.preferences.videoGestures
@@ -687,11 +690,54 @@ fun VideoPlayerPage(
             }
             // Left half: brightness. Right half: volume. A half whose gesture is off is left alone,
             // so swiping down there still closes the video.
+            // One finger, VLC style: swipe sideways to seek, up/down on the left half for brightness and on
+            // the right half for volume. Decides the direction after a small move so taps still work.
             .pointerInput(gestures.brightness, gestures.volume, movieMode) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     if (!movieMode) return@awaitEachGesture
+                    val slop = viewConfiguration.touchSlop
+                    var totalX = 0f
+                    var totalY = 0f
+                    var horizontal = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        if (event.changes.count { it.pressed } > 1) return@awaitEachGesture // a pinch, not ours
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                        if (!change.pressed) return@awaitEachGesture
+                        val delta = change.positionChange()
+                        totalX += delta.x
+                        totalY += delta.y
+                        if (kotlin.math.abs(totalX) > slop && kotlin.math.abs(totalX) > kotlin.math.abs(totalY)) {
+                            horizontal = true
+                            break
+                        }
+                        if (kotlin.math.abs(totalY) > slop) break
+                    }
                     val width = size.width.toFloat()
+                    if (horizontal) {
+                        val p = player ?: return@awaitEachGesture
+                        val startMs = p.currentPosition
+                        val total = durationMs
+                        var targetMs = startMs
+                        dragging = true
+                        var dragX = totalX
+                        horizontalDrag(down.id) { change ->
+                            dragX += change.positionChange().x
+                            change.consume()
+                            targetMs = swipeSeekTarget(startMs, dragX, width, total)
+                            swipeSeek = SwipeSeek(targetMs, targetMs - startMs)
+                        }
+                        dragging = false
+                        if (swipeSeek != null) {
+                            p.seekTo(targetMs)
+                            positionMs = targetMs
+                            ended = false
+                            swipeSeek = null
+                            onInteraction()
+                        }
+                        return@awaitEachGesture
+                    }
                     val left = isLeftHalf(down.position.x, width)
                     if (if (left) !gestures.brightness else !gestures.volume) return@awaitEachGesture
                     val extent = size.height * 0.7f
@@ -709,19 +755,14 @@ fun VideoPlayerPage(
                         }
                         indicatorTick++
                     }
-                    val first = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
+                    move(totalY)
+                    verticalDrag(down.id) { change ->
+                        move(change.positionChange().y)
                         change.consume()
-                        move(over)
-                    }
-                    if (first != null) {
-                        verticalDrag(first.id) { change ->
-                            move(change.positionChange().y)
-                            change.consume()
-                        }
                     }
                 }
             }
-            // Two fingers pinch-zoom and pan; one finger pans only while already zoomed.
+            // Two fingers pinch-zoom and move the picture. One finger never moves it, so seeking and brightness/volume swipes cannot shift the frame.
             .pointerInput(containerW, containerH, frame, movieMode) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
@@ -731,7 +772,7 @@ fun VideoPlayerPage(
                         val event = awaitPointerEvent()
                         val pressed = event.changes.count { it.pressed }
                         val pinching = pressed >= 2
-                        if (pinching || (pressed == 1 && zoom > 1f)) {
+                        if (pinching) {
                             val factor = if (pinching) event.calculateZoom() else 1f
                             val pan = event.calculatePan()
                             if (factor != 1f || pan != Offset.Zero) {
@@ -801,6 +842,18 @@ fun VideoPlayerPage(
 
         // Brightness / volume level and double-tap seek feedback.
         indicator?.let { LevelPill(it, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 72.dp)) }
+        swipeSeek?.let { sw ->
+            PlayerPill(
+                modifier = Modifier.align(Alignment.Center),
+                announce = "Seek ${swipeDeltaLabel(sw.deltaMs)}",
+            ) {
+                Text(
+                    text = "${swipeDeltaLabel(sw.deltaMs)}   ${formatDuration(sw.targetMs)} / ${formatDuration(durationMs)}",
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+        }
         seekFlash?.let { zone ->
             val label = if (zone == TapZone.Right) "+${vs.seekIntervalSec}s" else "-${vs.seekIntervalSec}s"
             PlayerPill(
@@ -1379,3 +1432,6 @@ private fun setBrightness(context: Context, level: Float) {
     val window = context.findActivity()?.window ?: return
     window.attributes = window.attributes.also { it.screenBrightness = level.coerceIn(0.01f, 1f) }
 }
+
+/** Live state of a horizontal swipe-to-seek: where it would land and how far that is from the start. */
+private data class SwipeSeek(val targetMs: Long, val deltaMs: Long)
