@@ -42,6 +42,23 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.rounded.Redo
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.rounded.Compare
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import com.aurax.imagery.domain.edit.ExportFormat
+import com.aurax.imagery.ui.components.GlassDropdownMenu
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -119,6 +136,50 @@ fun EditorScreen(mediaId: Long, onClose: () -> Unit) {
             navigationDescription = "Close editor",
             onNavigationClick = requestClose,
             actions = {
+                IconButton(onClick = viewModel::undo, enabled = state.canUndo && !state.saving) {
+                    Icon(Icons.AutoMirrored.Rounded.Undo, contentDescription = "Undo")
+                }
+                IconButton(onClick = viewModel::redo, enabled = state.canRedo && !state.saving) {
+                    Icon(Icons.AutoMirrored.Rounded.Redo, contentDescription = "Redo")
+                }
+                // Hold to see the photo as it was before the edits.
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                viewModel.setComparing(true)
+                                waitForUpOrCancellation()
+                                viewModel.setComparing(false)
+                            }
+                        }
+                        .semantics { contentDescription = "Hold to compare with the original" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.Compare,
+                        contentDescription = null,
+                        tint = if (state.comparing) MaterialTheme.colorScheme.primary else LocalContentColor.current,
+                    )
+                }
+                var formatMenu by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(onClick = { formatMenu = true }, enabled = !state.saving) {
+                        Icon(Icons.Rounded.Image, contentDescription = "Save format: ${state.format.label}")
+                    }
+                    GlassDropdownMenu(expanded = formatMenu, onDismissRequest = { formatMenu = false }) {
+                        ExportFormat.entries.forEach { f ->
+                            DropdownMenuItem(
+                                text = { Text(if (f == state.format) "${f.label}  ✓" else f.label) },
+                                onClick = {
+                                    viewModel.setFormat(f)
+                                    formatMenu = false
+                                },
+                            )
+                        }
+                    }
+                }
                 IconButton(onClick = viewModel::resetAll, enabled = state.edit.isEdited && !state.saving) {
                     Icon(Icons.Rounded.RestartAlt, contentDescription = "Reset all edits")
                 }
@@ -152,16 +213,17 @@ fun EditorScreen(mediaId: Long, onClose: () -> Unit) {
                     val fitWidth: Dp = if (imageAspect > maxWidth / maxHeight) maxWidth else maxHeight * imageAspect
                     val fitHeight: Dp = if (imageAspect > maxWidth / maxHeight) maxWidth / imageAspect else maxHeight
                     val colorFilter = rememberColorFilter(state.edit)
+                    val showOriginal = state.comparing && state.original != null
                     Box(modifier = Modifier.size(fitWidth, fitHeight)) {
                         Image(
-                            bitmap = preview,
+                            bitmap = if (showOriginal) state.original!! else preview,
                             contentDescription = "Photo being edited",
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.FillBounds,
-                            colorFilter = colorFilter,
+                            colorFilter = if (showOriginal) null else colorFilter,
                         )
                         // The frame is always visible; it is only draggable while the Crop tool is open.
-                        CropOverlay(
+                        if (!showOriginal) CropOverlay(
                             crop = state.edit.crop,
                             aspect = state.edit.cropAspect,
                             imageAspect = imageAspect,
@@ -197,7 +259,7 @@ fun EditorScreen(mediaId: Long, onClose: () -> Unit) {
 
 @Composable
 private fun rememberColorFilter(edit: EditState): ColorFilter? {
-    val values = remember(edit.filter, edit.brightness, edit.contrast, edit.saturation) { ColorMath.forEdit(edit) }
+    val values = remember(edit.filter, edit.brightness, edit.contrast, edit.saturation, edit.exposure) { ColorMath.forEdit(edit) }
     return remember(values) {
         if (values.contentEquals(ColorMath.Identity)) null else ColorFilter.colorMatrix(ColorMatrix(values))
     }
@@ -242,12 +304,14 @@ private fun ToolPanel(state: EditorUiState, viewModel: EditorViewModel) {
                 }
 
                 EditTool.Adjust -> Column(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                    modifier = Modifier.fillMaxWidth().fillMaxHeight().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
+                    AdjustSlider("Exposure", state.edit.exposure, viewModel::setExposure)
                     AdjustSlider("Brightness", state.edit.brightness, viewModel::setBrightness)
                     AdjustSlider("Contrast", state.edit.contrast, viewModel::setContrast)
                     AdjustSlider("Saturation", state.edit.saturation, viewModel::setSaturation)
+                    AdjustSlider("Sharpness", state.edit.sharpness, viewModel::setSharpness, 0f..1f)
                 }
 
                 EditTool.Filters -> LazyRow(
@@ -300,7 +364,7 @@ private fun ToolAction(
 
 /** A -100..100 slider; tapping the label snaps it back to 0. */
 @Composable
-private fun AdjustSlider(label: String, value: Float, onChange: (Float) -> Unit) {
+private fun AdjustSlider(label: String, value: Float, onChange: (Float) -> Unit, range: ClosedFloatingPointRange<Float> = -1f..1f) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = label,
@@ -310,7 +374,7 @@ private fun AdjustSlider(label: String, value: Float, onChange: (Float) -> Unit)
         Slider(
             value = value,
             onValueChange = onChange,
-            valueRange = -1f..1f,
+            valueRange = range,
             modifier = Modifier.weight(1f).height(32.dp),
         )
         Text(

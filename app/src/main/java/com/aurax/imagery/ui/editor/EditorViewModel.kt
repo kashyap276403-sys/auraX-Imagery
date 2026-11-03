@@ -15,6 +15,7 @@ import com.aurax.imagery.data.media.EditedImageSaver
 import com.aurax.imagery.domain.edit.CropAspect
 import com.aurax.imagery.domain.edit.CropRect
 import com.aurax.imagery.domain.edit.EditState
+import com.aurax.imagery.domain.edit.ExportFormat
 import com.aurax.imagery.domain.edit.PhotoFilter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,6 +38,12 @@ data class EditorUiState(
     val edit: EditState = EditState(),
     val tool: EditTool = EditTool.Crop,
     val saving: Boolean = false,
+    val canUndo: Boolean = false,
+    val canRedo: Boolean = false,
+    /** While true the UI shows the untouched original (hold the compare button). */
+    val comparing: Boolean = false,
+    val original: ImageBitmap? = null,
+    val format: ExportFormat = ExportFormat.Auto,
 )
 
 sealed interface EditorEvent {
@@ -75,14 +82,58 @@ class EditorViewModel(
                     BitmapEdit.decode(container.appContext.contentResolver, sourceUri, PREVIEW_EDGE)
                 }
                 source = bitmap
-                _state.update { it.copy(loading = false, preview = bitmap.asImageBitmap()) }
+                val image = bitmap.asImageBitmap()
+                _state.update { it.copy(loading = false, preview = image, original = image) }
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, error = "This photo couldn't be opened for editing.") }
             }
         }
     }
 
-    private fun updateEdit(transform: (EditState) -> EditState) = _state.update { it.copy(edit = transform(it.edit)) }
+    private val undoStack = ArrayDeque<EditState>()
+    private val redoStack = ArrayDeque<EditState>()
+    private var lastKind: String? = null
+    private var lastEditAt = 0L
+
+    /**
+     * Applies an edit and records the previous state for undo. Edits of the same [kind] made within
+     * a short time (a slider drag, a crop drag) merge into one undo step.
+     */
+    private fun updateEdit(kind: String? = null, transform: (EditState) -> EditState) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val before = _state.value.edit
+        val after = transform(before)
+        if (after == before) return
+        val merge = kind != null && kind == lastKind && now - lastEditAt < MERGE_WINDOW_MS
+        if (!merge) {
+            undoStack.addLast(before)
+            if (undoStack.size > MAX_HISTORY) undoStack.removeFirst()
+        }
+        redoStack.clear()
+        lastKind = kind
+        lastEditAt = now
+        _state.update { it.copy(edit = after, canUndo = undoStack.isNotEmpty(), canRedo = false) }
+    }
+
+    fun undo() {
+        val previous = undoStack.removeLastOrNull() ?: return
+        redoStack.addLast(_state.value.edit)
+        lastKind = null
+        _state.update { it.copy(edit = previous, canUndo = undoStack.isNotEmpty(), canRedo = true) }
+        rebuildPreview()
+    }
+
+    fun redo() {
+        val next = redoStack.removeLastOrNull() ?: return
+        undoStack.addLast(_state.value.edit)
+        lastKind = null
+        _state.update { it.copy(edit = next, canUndo = true, canRedo = redoStack.isNotEmpty()) }
+        rebuildPreview()
+    }
+
+    fun setComparing(on: Boolean) = _state.update { it.copy(comparing = on) }
+
+    fun setFormat(format: ExportFormat) = _state.update { it.copy(format = format) }
 
     /** Rebuilds the oriented preview after a rotate or flip; later taps cancel earlier, slower rebuilds. */
     private fun rebuildPreview() {
@@ -90,8 +141,12 @@ class EditorViewModel(
         orientJob?.cancel()
         orientJob = viewModelScope.launch {
             val edit = _state.value.edit
-            val oriented = withContext(Dispatchers.Default) { BitmapEdit.orient(base, edit) }
-            _state.update { it.copy(preview = oriented.asImageBitmap()) }
+            kotlinx.coroutines.delay(if (edit.sharpness > 0f) SHARPEN_DEBOUNCE_MS else 0L)
+            val shown = withContext(Dispatchers.Default) {
+                val oriented = BitmapEdit.orient(base, edit)
+                BitmapEdit.sharpen(oriented, edit.sharpness)
+            }
+            _state.update { it.copy(preview = shown.asImageBitmap()) }
         }
     }
 
@@ -112,7 +167,7 @@ class EditorViewModel(
         rebuildPreview()
     }
 
-    fun setCrop(crop: CropRect) = updateEdit { it.copy(crop = crop) }
+    fun setCrop(crop: CropRect) = updateEdit("crop") { it.copy(crop = crop) }
 
     fun setAspect(aspect: CropAspect) {
         val preview = _state.value.preview ?: return
@@ -126,9 +181,14 @@ class EditorViewModel(
         }
     }
 
-    fun setBrightness(value: Float) = updateEdit { it.copy(brightness = value) }
-    fun setContrast(value: Float) = updateEdit { it.copy(contrast = value) }
-    fun setSaturation(value: Float) = updateEdit { it.copy(saturation = value) }
+    fun setBrightness(value: Float) = updateEdit("brightness") { it.copy(brightness = value) }
+    fun setContrast(value: Float) = updateEdit("contrast") { it.copy(contrast = value) }
+    fun setSaturation(value: Float) = updateEdit("saturation") { it.copy(saturation = value) }
+    fun setExposure(value: Float) = updateEdit("exposure") { it.copy(exposure = value) }
+    fun setSharpness(value: Float) {
+        updateEdit("sharpness") { it.copy(sharpness = value) }
+        rebuildPreview()
+    }
     fun setFilter(filter: PhotoFilter) = updateEdit { it.copy(filter = filter) }
 
     fun resetAll() {
@@ -141,7 +201,7 @@ class EditorViewModel(
         if (current.saving || current.loading || current.error != null) return
         _state.update { it.copy(saving = true) }
         viewModelScope.launch {
-            val result = saver.save(sourceUri, current.edit)
+            val result = saver.save(sourceUri, current.edit, current.format)
             _state.update { it.copy(saving = false) }
             result.fold(
                 onSuccess = { _events.send(EditorEvent.Saved) },
@@ -153,6 +213,9 @@ class EditorViewModel(
     companion object {
         /** Longest side of the on-screen preview; large enough to look sharp, small enough to stay fast. */
         private const val PREVIEW_EDGE = 2048
+        private const val MAX_HISTORY = 50
+        private const val MERGE_WINDOW_MS = 700L
+        private const val SHARPEN_DEBOUNCE_MS = 120L
 
         fun factory(container: AppContainer, mediaId: Long) = viewModelFactory {
             initializer { EditorViewModel(container, mediaId) }

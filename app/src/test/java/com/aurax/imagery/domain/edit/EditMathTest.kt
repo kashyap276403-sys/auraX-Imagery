@@ -108,3 +108,28 @@ class EditMathTest {
         assertEquals(0.4f, moved.width, 0.001f)
     }
 }
+
+class EditExtrasTest {
+    @org.junit.Test
+    fun exposureGainIsOneAtZeroAndDoublesPerStop() {
+        org.junit.Assert.assertEquals(1f, ColorMath.exposureGain(0f), 1e-6f)
+        org.junit.Assert.assertEquals(2f, ColorMath.exposureGain(1f / 1.5f), 1e-5f)
+        org.junit.Assert.assertTrue(ColorMath.exposureGain(-1f) < 1f)
+    }
+
+    @org.junit.Test
+    fun newAdjustmentsCountAsEditsAndChangeTheMatrix() {
+        org.junit.Assert.assertTrue(EditState(exposure = 0.3f).isEdited)
+        org.junit.Assert.assertTrue(EditState(sharpness = 0.5f).isEdited)
+        org.junit.Assert.assertFalse(ColorMath.forEdit(EditState(exposure = 0.5f)).contentEquals(ColorMath.Identity))
+        // Sharpness is a pixel operation, not part of the colour matrix.
+        org.junit.Assert.assertTrue(ColorMath.forEdit(EditState(sharpness = 1f)).contentEquals(ColorMath.Identity))
+    }
+
+    @org.junit.Test
+    fun exportFormatAutoFollowsTheSource() {
+        org.junit.Assert.assertEquals(ExportFormat.Png, ExportFormat.Auto.resolve("image/png"))
+        org.junit.Assert.assertEquals(ExportFormat.Jpeg, ExportFormat.Auto.resolve("image/heic"))
+        org.junit.Assert.assertEquals(ExportFormat.Webp, ExportFormat.Webp.resolve("image/png"))
+    }
+}

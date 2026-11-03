@@ -70,11 +70,18 @@ object ColorMath {
     /** Final matrix for an edit: filter first, then saturation, contrast and brightness. */
     fun forEdit(state: EditState): FloatArray {
         var m = state.filter.matrix
+        if (state.exposure != 0f) {
+            val gain = exposureGain(state.exposure)
+            m = concat(channelScale(gain, gain, gain), m)
+        }
         if (state.saturation != 0f) m = concat(saturation(1f + state.saturation), m)
         if (state.contrast != 0f) m = concat(contrast(1f + state.contrast), m)
         if (state.brightness != 0f) m = concat(brightness(state.brightness * BRIGHTNESS_RANGE), m)
         return m
     }
+
+    /** Multiplier for the exposure slider (-1..1): 2^(1.5 * value), so 0 is exactly 1. */
+    fun exposureGain(exposure: Float): Float = Math.pow(2.0, (1.5f * exposure).toDouble()).toFloat()
 
     /** At full slider travel brightness shifts each channel by this many 0..255 levels. */
     const val BRIGHTNESS_RANGE = 100f

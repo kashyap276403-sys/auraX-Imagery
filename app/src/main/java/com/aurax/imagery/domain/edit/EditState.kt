@@ -147,10 +147,15 @@ data class EditState(
     val contrast: Float = 0f,
     val saturation: Float = 0f,
     val filter: PhotoFilter = PhotoFilter.None,
+    /** -1..1. Scales light like a camera stop: 0 unchanged, 1 is about +1.5 stops. */
+    val exposure: Float = 0f,
+    /** 0..1. Unsharp-mask strength, applied to pixels (not a colour matrix). */
+    val sharpness: Float = 0f,
 ) {
     val isEdited: Boolean
         get() = quarterTurns % 4 != 0 || flipHorizontal || flipVertical || !crop.isFull ||
-            brightness != 0f || contrast != 0f || saturation != 0f || filter != PhotoFilter.None
+            brightness != 0f || contrast != 0f || saturation != 0f || filter != PhotoFilter.None ||
+            exposure != 0f || sharpness != 0f
 
     /** Rotating or mirroring changes the picture's frame, so a previous crop no longer applies. */
     fun rotated(clockwise: Boolean): EditState = copy(

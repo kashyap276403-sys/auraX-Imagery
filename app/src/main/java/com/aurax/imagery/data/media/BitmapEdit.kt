@@ -36,6 +36,44 @@ object BitmapEdit {
         }
     }
 
+    /**
+     * Unsharp mask: out = original + amount * (original - blurred), with a 3x3 box blur. [amount] 0..1
+     * maps to a gain of 0..1.6. Works on a copy; returns [source] when there is nothing to do.
+     */
+    fun sharpen(source: Bitmap, amount: Float): Bitmap {
+        if (amount <= 0f) return source
+        val w = source.width
+        val h = source.height
+        if (w < 3 || h < 3) return source
+        val src = IntArray(w * h)
+        source.getPixels(src, 0, w, 0, 0, w, h)
+        val out = src.copyOf()
+        val gain = amount * 1.6f
+        for (y in 1 until h - 1) {
+            for (x in 1 until w - 1) {
+                val i = y * w + x
+                val p = src[i]
+                var sr = 0
+                var sg = 0
+                var sb = 0
+                for (dy in -1..1) for (dx in -1..1) {
+                    val q = src[i + dy * w + dx]
+                    sr += (q shr 16) and 0xFF
+                    sg += (q shr 8) and 0xFF
+                    sb += q and 0xFF
+                }
+                val r = ((p shr 16) and 0xFF)
+                val g = ((p shr 8) and 0xFF)
+                val b = (p and 0xFF)
+                val nr = (r + gain * (r - sr / 9f)).roundToInt().coerceIn(0, 255)
+                val ng = (g + gain * (g - sg / 9f)).roundToInt().coerceIn(0, 255)
+                val nb = (b + gain * (b - sb / 9f)).roundToInt().coerceIn(0, 255)
+                out[i] = (p and 0xFF000000.toInt()) or (nr shl 16) or (ng shl 8) or nb
+            }
+        }
+        return Bitmap.createBitmap(out, w, h, Bitmap.Config.ARGB_8888)
+    }
+
     /** Applies the edit's rotation and mirroring. Returns [source] itself when there is nothing to do. */
     fun orient(source: Bitmap, edit: EditState): Bitmap {
         val turns = edit.quarterTurns % 4
@@ -62,13 +100,15 @@ object BitmapEdit {
             }
         }
 
-        val matrix = ColorMath.forEdit(edit)
-        if (matrix.contentEquals(ColorMath.Identity)) return cropped
+        val sharpened = sharpen(cropped, edit.sharpness).also { if (it !== cropped && cropped !== source) cropped.recycle() }
 
-        val out = Bitmap.createBitmap(cropped.width, cropped.height, Bitmap.Config.ARGB_8888)
+        val matrix = ColorMath.forEdit(edit)
+        if (matrix.contentEquals(ColorMath.Identity)) return sharpened
+
+        val out = Bitmap.createBitmap(sharpened.width, sharpened.height, Bitmap.Config.ARGB_8888)
         val paint = Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = ColorMatrixColorFilter(ColorMatrix(matrix)) }
-        Canvas(out).drawBitmap(cropped, 0f, 0f, paint)
-        if (cropped !== source) cropped.recycle()
+        Canvas(out).drawBitmap(sharpened, 0f, 0f, paint)
+        if (sharpened !== source) sharpened.recycle()
         return out
     }
 }

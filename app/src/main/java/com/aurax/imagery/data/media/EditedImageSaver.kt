@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import com.aurax.imagery.domain.edit.EditState
+import com.aurax.imagery.domain.edit.ExportFormat
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -21,19 +22,19 @@ import kotlinx.coroutines.withContext
  */
 class EditedImageSaver(private val context: Context) {
 
-    suspend fun save(sourceUri: Uri, edit: EditState): Result<Uri> = withContext(Dispatchers.IO) {
+    suspend fun save(sourceUri: Uri, edit: EditState, format: ExportFormat = ExportFormat.Auto): Result<Uri> = withContext(Dispatchers.IO) {
         try {
             val resolver = context.contentResolver
             val sourceMime = resolver.getType(sourceUri)
-            val asPng = sourceMime == "image/png"
+            val out = format.resolve(sourceMime)
 
             val source = BitmapEdit.decode(resolver, sourceUri, MAX_EXPORT_EDGE)
             val result = BitmapEdit.render(source, edit)
 
             val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
             val values = ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME, "AuraX_$stamp.${if (asPng) "png" else "jpg"}")
-                put(MediaStore.Images.Media.MIME_TYPE, if (asPng) "image/png" else "image/jpeg")
+                put(MediaStore.Images.Media.DISPLAY_NAME, "AuraX_$stamp.${out.extension}")
+                put(MediaStore.Images.Media.MIME_TYPE, out.mime)
                 put(MediaStore.Images.Media.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/AuraX Imagery")
                 put(MediaStore.Images.Media.DATE_TAKEN, System.currentTimeMillis())
                 put(MediaStore.Images.Media.IS_PENDING, 1)
@@ -42,11 +43,15 @@ class EditedImageSaver(private val context: Context) {
             val target = resolver.insert(collection, values) ?: throw IOException("Couldn't create the new file")
 
             try {
-                resolver.openOutputStream(target)?.use { out ->
+                resolver.openOutputStream(target)?.use { stream ->
                     val ok = result.compress(
-                        if (asPng) Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG,
+                        when (out) {
+                            ExportFormat.Png -> Bitmap.CompressFormat.PNG
+                            ExportFormat.Webp -> Bitmap.CompressFormat.WEBP_LOSSY
+                            else -> Bitmap.CompressFormat.JPEG
+                        },
                         JPEG_QUALITY,
-                        out,
+                        stream,
                     )
                     if (!ok) throw IOException("Couldn't encode the image")
                 } ?: throw IOException("Couldn't open the new file")
