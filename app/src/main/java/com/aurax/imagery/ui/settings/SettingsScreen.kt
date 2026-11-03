@@ -110,6 +110,19 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
             }
 
             GlassCard {
+                Heading("Privacy")
+                val appLock by container.preferences.appLock.collectAsStateWithLifecycle(initialValue = false)
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val canLock = remember { com.aurax.imagery.security.BiometricAuth.isAvailable(ctx) }
+                SwitchRow(
+                    "App Lock",
+                    if (canLock) "Ask for fingerprint, face or screen lock when opening the app" else "Set a screen lock or fingerprint in system settings first",
+                    appLock,
+                ) { on -> if (on == false || canLock) scope.launch { container.preferences.setAppLock(on) } }
+                Body("Also hides the app in the recent-apps screen and blocks screenshots while on. This stops someone casually opening the app; it does not encrypt your photos, which stay in the normal gallery storage.")
+            }
+
+            GlassCard {
                 Heading("Photo grid")
                 val columns by container.preferences.gridColumns.collectAsStateWithLifecycle(initialValue = 0)
                 Body("Columns in Photos, Favorites and albums. Auto fits as many as the screen allows.")

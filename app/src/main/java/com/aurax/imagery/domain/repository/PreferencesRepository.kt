@@ -21,6 +21,10 @@ interface PreferencesRepository {
     val gridColumns: Flow<Int>
     suspend fun setGridColumns(columns: Int)
 
+    /** Require device biometrics / screen lock to open the app. */
+    val appLock: Flow<Boolean>
+    suspend fun setAppLock(enabled: Boolean)
+
     /** Media ids opened in the viewer, most recent first (kept short). */
     val recentViewedIds: Flow<List<Long>>
     suspend fun recordViewed(mediaId: Long)

@@ -165,6 +165,12 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[GRID_COLUMNS] = if (columns in 2..6) columns else 0 }
     }
 
+    override val appLock: Flow<Boolean> = safeData.map { it[APP_LOCK] ?: false }
+
+    override suspend fun setAppLock(enabled: Boolean) {
+        store.edit { it[APP_LOCK] = enabled }
+    }
+
     override val recentViewedIds: Flow<List<Long>> =
         safeData.map { prefs -> prefs[RECENT_VIEWED].orEmpty().split(',').mapNotNull { it.toLongOrNull() } }
 
@@ -223,6 +229,7 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val VP_HAPTICS = booleanPreferencesKey("vp_haptics")
         val VIDEO_CINEMATIC = stringPreferencesKey("video_cinematic")
         val ALBUM_COVERS = stringPreferencesKey("album_covers")
+        val APP_LOCK = booleanPreferencesKey("app_lock")
         val GRID_COLUMNS = intPreferencesKey("grid_columns")
         val RECENT_VIEWED = stringPreferencesKey("viewer_recent_ids")
         const val MAX_RECENT_VIEWED = 60
