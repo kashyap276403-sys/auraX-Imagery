@@ -66,7 +66,7 @@ import kotlinx.coroutines.withContext
  * cache, the manifest) or performs a real action.
  */
 @Composable
-fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
+fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit, onOpenInsights: () -> Unit = {}) {
     val context = LocalContext.current
     val container = remember { (context.applicationContext as AuraXApp).container }
     val scope = rememberCoroutineScope()
@@ -257,6 +257,8 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
                         }
                     })
                 }
+                Spacer(Modifier.height(8.dp))
+                GlassButton(text = "Storage insights and duplicates", onClick = onOpenInsights)
                 Body("Clearing the cache only deletes generated thumbnails. Your photos are never touched.")
             }
 

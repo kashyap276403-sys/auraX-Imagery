@@ -71,9 +71,11 @@ fun AuraNavHost(
         composable(AuraRoutes.SETTINGS) {
             SettingsScreen(
                 onOpenGlassStudio = { navController.navigate(AuraRoutes.GLASS_STUDIO) },
+                onOpenInsights = { navController.navigate(AuraRoutes.INSIGHTS) },
                 onBack = { navController.popBackStack() },
             )
         }
+        composable(AuraRoutes.INSIGHTS) { com.aurax.imagery.ui.gallery.InsightsScreen(onBack = { navController.popBackStack() }) }
         composable(AuraRoutes.TRASH) { com.aurax.imagery.ui.gallery.TrashScreen(onBack = { navController.popBackStack() }) }
         composable(AuraRoutes.GLASS_STUDIO) { GlassStudioScreen(onBack = { navController.popBackStack() }) }
 

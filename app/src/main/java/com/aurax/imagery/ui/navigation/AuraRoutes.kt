@@ -33,6 +33,7 @@ object AuraRoutes {
     private const val KIND_VIEWED = "viewed"
 
     const val TRASH = "trash"
+    const val INSIGHTS = "insights"
 
     /** The album name travels as a query argument so the detail screen can title itself. */
     fun album(album: Album): String {
@@ -81,5 +82,5 @@ object AuraRoutes {
     fun isEditor(route: String?): Boolean = route?.startsWith(EDITOR_PREFIX) == true
 
     /** Full-screen destinations draw their own chrome, so the floating tab bar is hidden there. */
-    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route) || route == GLASS_STUDIO || route == SETTINGS || route == TRASH
+    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route) || route == GLASS_STUDIO || route == SETTINGS || route == TRASH || route == INSIGHTS
 }
