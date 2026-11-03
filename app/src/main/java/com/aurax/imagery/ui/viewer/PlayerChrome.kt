@@ -425,6 +425,9 @@ fun ThinSlider(
     )
 }
 
+/** Shared by every player page; about 8 MB of 320px frames. */
+private val SeekFramesShared = SeekFrameCache<android.graphics.Bitmap>(8 * 1024 * 1024) { it.allocationByteCount }
+
 /**
  * Frame shown above the thumb while scrubbing. Frames come from MediaMetadataRetriever (nearest
  * keyframe, so it stays quick), are fetched one at a time after a short pause in dragging, and the
@@ -448,13 +451,21 @@ fun rememberSeekPreview(uri: String, active: Boolean, positionMs: Long, aspect: 
         val height = (width / aspect.coerceIn(0.4f, 2.5f)).roundToInt().coerceAtLeast(2)
         try {
             snapshotFlow { latest.value }.collectLatest { ms ->
+                val cached = SeekFramesShared.get(uri, ms)
+                if (cached != null) {
+                    value = cached.asImageBitmap()
+                    return@collectLatest
+                }
                 delay(50L)
                 val bitmap = withContext(Dispatchers.IO) {
                     runCatching {
                         retriever.getScaledFrameAtTime(ms * 1000L, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, width, height)
                     }.getOrNull()
                 }
-                if (bitmap != null) value = bitmap.asImageBitmap()
+                if (bitmap != null) {
+                    SeekFramesShared.put(uri, ms, bitmap)
+                    value = bitmap.asImageBitmap()
+                }
             }
         } finally {
             withContext(NonCancellable + Dispatchers.IO) { runCatching { retriever.release() } }
