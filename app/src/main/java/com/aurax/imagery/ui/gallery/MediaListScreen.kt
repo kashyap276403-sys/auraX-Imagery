@@ -34,6 +34,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -88,6 +91,31 @@ fun MediaListScreen(
     }
     val haptics = LocalHapticFeedback.current
     val glass = LocalGlassStyle.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val ops = remember { com.aurax.imagery.data.media.MediaFileOps(context.applicationContext) }
+    // Batch Move / Copy: pick a folder first, then (for Move) the system asks to allow editing the files.
+    var pickerMode by remember { mutableStateOf<String?>(null) } // "Move" or "Copy"
+    var moveTarget by remember { mutableStateOf<Pair<List<com.aurax.imagery.domain.model.MediaItem>, String>?>(null) }
+    val albumNames by produceState(emptyList<String>()) {
+        container.mediaRepository.observeAlbums().collect { list ->
+            value = list.filter { it.ref is com.aurax.imagery.domain.model.AlbumRef.Bucket }.map { it.name }
+        }
+    }
+    val moveLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        val target = moveTarget
+        moveTarget = null
+        if (result.resultCode == android.app.Activity.RESULT_OK && target != null) {
+            scope.launch {
+                val moved = ops.applyMove(target.first, target.second)
+                android.widget.Toast.makeText(context, "Moved $moved to ${target.second}", android.widget.Toast.LENGTH_SHORT).show()
+                viewModel.clearSelection()
+                container.indexer.enqueue()
+            }
+        }
+    }
+    var moreMenu by remember { mutableStateOf(false) }
     val selecting = state.selectedIds.isNotEmpty()
 
     // Back leaves selection mode first, then the screen.
@@ -125,6 +153,30 @@ fun MediaListScreen(
                     }
                     DropIconButton(onClick = { trash(viewModel.selectedItems()) }) {
                         Icon(Icons.Rounded.Delete, contentDescription = "Move to trash")
+                    }
+                    Box {
+                        DropIconButton(onClick = { moreMenu = true }) {
+                            Icon(Icons.Rounded.MoreVert, contentDescription = "More actions")
+                        }
+                        GlassDropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
+                            DropdownMenuItem(text = { Text("Move to album") }, onClick = { moreMenu = false; pickerMode = "Move" })
+                            DropdownMenuItem(text = { Text("Copy to album") }, onClick = { moreMenu = false; pickerMode = "Copy" })
+                            val bucket = (source as? MediaSource.Album)?.ref as? com.aurax.imagery.domain.model.AlbumRef.Bucket
+                            if (bucket != null && state.selectedIds.size == 1) {
+                                DropdownMenuItem(
+                                    text = { Text("Use as album cover") },
+                                    onClick = {
+                                        moreMenu = false
+                                        val cover = viewModel.selectedItems().firstOrNull()
+                                        if (cover != null) {
+                                            scope.launch { container.preferences.setAlbumCover(bucket.id, cover.uri) }
+                                            android.widget.Toast.makeText(context, "Album cover set", android.widget.Toast.LENGTH_SHORT).show()
+                                            viewModel.clearSelection()
+                                        }
+                                    },
+                                )
+                            }
+                        }
                     }
                 },
             )
@@ -198,6 +250,40 @@ fun MediaListScreen(
             }
         }
     }
+    }
+
+    pickerMode?.let { mode ->
+        FolderPickerDialog(
+            title = "$mode to album",
+            existing = albumNames,
+            onDismiss = { pickerMode = null },
+            onPick = { name ->
+                pickerMode = null
+                val picked = viewModel.selectedItems()
+                if (picked.isNotEmpty()) {
+                    if (mode == "Copy") {
+                        scope.launch {
+                            val result = ops.copy(picked, name)
+                            android.widget.Toast.makeText(
+                                context,
+                                result.fold({ "Copied $it to $name" }, { it.message ?: "Couldn't copy" }),
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                            viewModel.clearSelection()
+                            container.indexer.enqueue()
+                        }
+                    } else {
+                        moveTarget = picked to name
+                        runCatching { ops.moveRequest(picked) }
+                            .onSuccess { moveLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(it.intentSender).build()) }
+                            .onFailure {
+                                moveTarget = null
+                                android.widget.Toast.makeText(context, "Couldn't start the move", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                    }
+                }
+            },
+        )
     }
 }
 

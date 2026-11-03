@@ -13,6 +13,10 @@ interface PreferencesRepository {
     suspend fun setSort(sort: SortOrder)
     suspend fun setGrouping(grouping: Grouping)
 
+    /** Album folder id to the uri of the photo the user chose as its cover. */
+    val albumCovers: Flow<Map<Long, String>>
+    suspend fun setAlbumCover(bucketId: Long, uri: String?)
+
     /** Photo grid columns: 0 = automatic (fit as many as the screen allows), otherwise 2..6. */
     val gridColumns: Flow<Int>
     suspend fun setGridColumns(columns: Int)

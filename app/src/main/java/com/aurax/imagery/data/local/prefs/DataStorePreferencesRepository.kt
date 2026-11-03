@@ -144,6 +144,21 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[VIDEO_CINEMATIC] = mode.name }
     }
 
+    override val albumCovers: Flow<Map<Long, String>> = safeData.map { prefs ->
+        prefs[ALBUM_COVERS].orEmpty().lineSequence().mapNotNull { line ->
+            val i = line.indexOf('\t')
+            if (i <= 0) null else line.substring(0, i).toLongOrNull()?.let { it to line.substring(i + 1) }
+        }.toMap()
+    }
+
+    override suspend fun setAlbumCover(bucketId: Long, uri: String?) {
+        store.edit {
+            val current = it[ALBUM_COVERS].orEmpty().lineSequence().filter { l -> l.isNotBlank() && !l.startsWith("$bucketId\t") }.toList()
+            val next = if (uri == null) current else current + "$bucketId\t$uri"
+            it[ALBUM_COVERS] = next.joinToString("\n")
+        }
+    }
+
     override val gridColumns: Flow<Int> = safeData.map { (it[GRID_COLUMNS] ?: 0).let { v -> if (v in 2..6) v else 0 } }
 
     override suspend fun setGridColumns(columns: Int) {
@@ -207,6 +222,7 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val VP_ORIENTATION = stringPreferencesKey("vp_orientation")
         val VP_HAPTICS = booleanPreferencesKey("vp_haptics")
         val VIDEO_CINEMATIC = stringPreferencesKey("video_cinematic")
+        val ALBUM_COVERS = stringPreferencesKey("album_covers")
         val GRID_COLUMNS = intPreferencesKey("grid_columns")
         val RECENT_VIEWED = stringPreferencesKey("viewer_recent_ids")
         const val MAX_RECENT_VIEWED = 60

@@ -79,9 +79,12 @@ fun AlbumsScreen(
             val viewModel: AlbumsViewModel = viewModel(factory = AlbumsViewModel.factory(container))
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             // Favorites is always reachable from here, even before the first heart is tapped.
-            val albums = remember(state.albums) {
-                if (state.albums.any { it.ref == AlbumRef.Favorites }) state.albums
+            val covers by container.preferences.albumCovers.collectAsStateWithLifecycle(initialValue = emptyMap())
+            val albums = remember(state.albums, covers) {
+                val base = if (state.albums.any { it.ref == AlbumRef.Favorites }) state.albums
                 else listOf(Album(AlbumRef.Favorites, "Favorites", null, 0)) + state.albums
+                // A cover the user picked wins over the newest photo.
+                base.map { a -> (a.ref as? AlbumRef.Bucket)?.let { b -> covers[b.id]?.let { a.copy(coverUri = it) } } ?: a }
             }
             when {
                 !state.hasLoaded -> LoadingState()
