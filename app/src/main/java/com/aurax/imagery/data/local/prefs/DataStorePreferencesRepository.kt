@@ -144,6 +144,20 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[VIDEO_CINEMATIC] = mode.name }
     }
 
+    override val recentViewedIds: Flow<List<Long>> =
+        safeData.map { prefs -> prefs[RECENT_VIEWED].orEmpty().split(',').mapNotNull { it.toLongOrNull() } }
+
+    override suspend fun recordViewed(mediaId: Long) {
+        store.edit {
+            val current = it[RECENT_VIEWED].orEmpty().split(',').mapNotNull { s -> s.toLongOrNull() }
+            it[RECENT_VIEWED] = (listOf(mediaId) + current.filter { id -> id != mediaId }).take(MAX_RECENT_VIEWED).joinToString(",")
+        }
+    }
+
+    override suspend fun clearRecentViewed() {
+        store.edit { it.remove(RECENT_VIEWED) }
+    }
+
     override val movieModeIds: Flow<Set<Long>> =
         safeData.map { prefs -> prefs[MOVIE_MODE_IDS].orEmpty().mapNotNull { it.toLongOrNull() }.toSet() }
 
@@ -187,6 +201,8 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val VP_ORIENTATION = stringPreferencesKey("vp_orientation")
         val VP_HAPTICS = booleanPreferencesKey("vp_haptics")
         val VIDEO_CINEMATIC = stringPreferencesKey("video_cinematic")
+        val RECENT_VIEWED = stringPreferencesKey("viewer_recent_ids")
+        const val MAX_RECENT_VIEWED = 60
         val MOVIE_MODE_IDS = stringSetPreferencesKey("video_movie_mode_ids")
         val VIDEO_RESUME = booleanPreferencesKey("video_resume")
         val VIDEO_SCREEN_MODE = stringPreferencesKey("video_screen_mode")

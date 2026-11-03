@@ -26,6 +26,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.PhotoAlbum
 import androidx.compose.material3.Icon
@@ -65,6 +67,7 @@ fun AlbumsScreen(
     onOpenAlbum: (Album) -> Unit,
     onOpenViewer: (MediaSource, Long) -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTrash: () -> Unit = {},
 ) {
     val container = (LocalContext.current.applicationContext as AuraXApp).container
     val access = rememberMediaAccessState(onAccessChanged = { container.indexer.enqueue() })
@@ -109,6 +112,9 @@ fun AlbumsScreen(
                     }
                     items(items = albums, key = { it.ref.toString() }) { album ->
                         AlbumTile(album = album, onClick = { onOpenAlbum(album) })
+                    }
+                    item(key = "trash") {
+                        AlbumTile(album = Album(AlbumRef.Videos, "Trash", null, -1), onClick = onOpenTrash, trash = true)
                     }
                 }
             }
@@ -158,7 +164,7 @@ private fun RecentRow(title: String, videos: List<RecentVideo>, onOpen: (RecentV
 }
 
 @Composable
-private fun AlbumTile(album: Album, onClick: () -> Unit) {
+private fun AlbumTile(album: Album, onClick: () -> Unit, trash: Boolean = false) {
     val shape = RoundedCornerShape(24.dp)
     Column(modifier = Modifier.clip(shape).clickable(onClick = onClick)) {
         Box(
@@ -178,7 +184,12 @@ private fun AlbumTile(album: Album, onClick: () -> Unit) {
                 )
             } else {
                 Icon(
-                    imageVector = if (album.ref == AlbumRef.Favorites) Icons.Rounded.Favorite else Icons.Rounded.PhotoAlbum,
+                    imageVector = when {
+                        trash -> Icons.Rounded.Delete
+                        album.ref == AlbumRef.Favorites -> Icons.Rounded.Favorite
+                        album.ref == AlbumRef.RecentlyAdded || album.ref == AlbumRef.RecentlyViewed -> Icons.Rounded.History
+                        else -> Icons.Rounded.PhotoAlbum
+                    },
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.align(Alignment.Center).size(40.dp),
@@ -205,7 +216,7 @@ private fun AlbumTile(album: Album, onClick: () -> Unit) {
             modifier = Modifier.padding(horizontal = 4.dp),
         )
         Text(
-            text = if (album.itemCount == 1) "1 item" else "${album.itemCount} items",
+            text = if (trash) "Restore deleted items" else if (album.itemCount == 1) "1 item" else "${album.itemCount} items",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 4.dp),

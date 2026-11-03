@@ -13,6 +13,11 @@ interface PreferencesRepository {
     suspend fun setSort(sort: SortOrder)
     suspend fun setGrouping(grouping: Grouping)
 
+    /** Media ids opened in the viewer, most recent first (kept short). */
+    val recentViewedIds: Flow<List<Long>>
+    suspend fun recordViewed(mediaId: Long)
+    suspend fun clearRecentViewed()
+
     /** Glass Studio's current look as an opaque string (null until the user changes something). */
     val glassStyle: Flow<String?>
     suspend fun setGlassStyle(encoded: String)

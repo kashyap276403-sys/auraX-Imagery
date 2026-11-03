@@ -26,6 +26,8 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.RotateRight
+import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -133,6 +135,8 @@ private fun ViewerContent(
     var chromeVisible by remember { mutableStateOf(true) }
     var zoomed by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    // Per-photo quarter turns for viewing only; the file itself is not changed (use Edit to save a rotated copy).
+    var rotations by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var orientationLock by remember { mutableStateOf(OrientationLock.Auto) }
     val landscape = orientationLock == OrientationLock.Landscape
     var videoPlaying by remember { mutableStateOf(false) }
@@ -178,6 +182,8 @@ private fun ViewerContent(
     }
 
     val current = items.getOrNull(pagerState.currentPage)
+    // Feeds "Recently viewed" in Albums.
+    LaunchedEffect(current?.id) { current?.id?.let { id -> container.preferences.recordViewed(id) } }
     val isVideo = current?.type == MediaType.Video
     OrientationLockEffect(if (isVideo) orientationLock else OrientationLock.Auto)
     val orientationLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -285,6 +291,7 @@ private fun ViewerContent(
                 ZoomableImage(
                     item = item,
                     isCurrent = isCurrent,
+                    quarterTurns = rotations[item.id] ?: 0,
                     onZoomChanged = { isZoomed -> if (pagerState.settledPage == page) zoomed = isZoomed },
                     onTap = { chromeVisible = !chromeVisible },
                 )
@@ -353,6 +360,12 @@ AnimatedVisibility(
                             Icon(Icons.Rounded.Share, contentDescription = "Share")
                         }
                         if (current.type == MediaType.Image) {
+                            IconButton(onClick = { rotations = rotations + (current.id to ((rotations[current.id] ?: 0) + 1) % 4) }) {
+                                Icon(Icons.Rounded.RotateRight, contentDescription = "Rotate (view only)")
+                            }
+                            IconButton(onClick = { setAsWallpaper(context, current) }) {
+                                Icon(Icons.Rounded.Wallpaper, contentDescription = "Set as wallpaper")
+                            }
                             IconButton(onClick = { onEdit(current.id) }) {
                                 Icon(Icons.Rounded.Edit, contentDescription = "Edit")
                             }
@@ -397,5 +410,17 @@ AnimatedVisibility(
 
     if (showInfo && current != null) {
         MediaInfoSheet(item = current, onDismiss = { showInfo = false })
+    }
+}
+
+/** Opens the system "Set as" chooser for a photo; the wallpaper app does the actual setting and cropping. */
+private fun setAsWallpaper(context: android.content.Context, item: MediaItem) {
+    try {
+        val intent = android.content.Intent(android.content.Intent.ACTION_ATTACH_DATA)
+            .setDataAndType(android.net.Uri.parse(item.uri), "image/*")
+            .addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        context.startActivity(android.content.Intent.createChooser(intent, "Set as"))
+    } catch (e: Exception) {
+        android.widget.Toast.makeText(context, "No app available to set a wallpaper", android.widget.Toast.LENGTH_SHORT).show()
     }
 }

@@ -29,6 +29,10 @@ object AuraRoutes {
     private const val KIND_BUCKET = "bucket"
     private const val KIND_FAVORITES = "favorites"
     private const val KIND_VIDEOS = "videos"
+    private const val KIND_ADDED = "added"
+    private const val KIND_VIEWED = "viewed"
+
+    const val TRASH = "trash"
 
     /** The album name travels as a query argument so the detail screen can title itself. */
     fun album(album: Album): String {
@@ -37,6 +41,8 @@ object AuraRoutes {
             is AlbumRef.Bucket -> "album/$KIND_BUCKET/${ref.id}?name=$name"
             AlbumRef.Favorites -> "album/$KIND_FAVORITES/0?name=$name"
             AlbumRef.Videos -> "album/$KIND_VIDEOS/0?name=$name"
+            AlbumRef.RecentlyAdded -> "album/$KIND_ADDED/0?name=$name"
+            AlbumRef.RecentlyViewed -> "album/$KIND_VIEWED/0?name=$name"
         }
     }
 
@@ -46,6 +52,8 @@ object AuraRoutes {
     fun albumRef(kind: String, id: Long): AlbumRef = when (kind) {
         KIND_FAVORITES -> AlbumRef.Favorites
         KIND_VIDEOS -> AlbumRef.Videos
+        KIND_ADDED -> AlbumRef.RecentlyAdded
+        KIND_VIEWED -> AlbumRef.RecentlyViewed
         else -> AlbumRef.Bucket(id)
     }
 
@@ -56,6 +64,8 @@ object AuraRoutes {
             is AlbumRef.Bucket -> "viewer/$KIND_BUCKET/${ref.id}/$mediaId"
             AlbumRef.Favorites -> "viewer/$KIND_FAVORITES/0/$mediaId"
             AlbumRef.Videos -> "viewer/$KIND_VIDEOS/0/$mediaId"
+            AlbumRef.RecentlyAdded -> "viewer/$KIND_ADDED/0/$mediaId"
+            AlbumRef.RecentlyViewed -> "viewer/$KIND_VIEWED/0/$mediaId"
         }
     }
 
@@ -71,5 +81,5 @@ object AuraRoutes {
     fun isEditor(route: String?): Boolean = route?.startsWith(EDITOR_PREFIX) == true
 
     /** Full-screen destinations draw their own chrome, so the floating tab bar is hidden there. */
-    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route) || route == GLASS_STUDIO || route == SETTINGS
+    fun hidesBottomBar(route: String?): Boolean = isViewer(route) || isEditor(route) || route == GLASS_STUDIO || route == SETTINGS || route == TRASH
 }

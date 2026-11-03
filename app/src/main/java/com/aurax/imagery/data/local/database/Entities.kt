@@ -1,5 +1,6 @@
 package com.aurax.imagery.data.local.database
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
@@ -26,6 +27,8 @@ data class MediaEntity(
     val durationMs: Long,
     val bucketId: Long,
     val bucketName: String,
+    /** When the file reached the device (ms), for "Recently added". 0 for rows indexed before version 4. */
+    @ColumnInfo(defaultValue = "0") val dateAdded: Long = 0L,
 )
 
 /**

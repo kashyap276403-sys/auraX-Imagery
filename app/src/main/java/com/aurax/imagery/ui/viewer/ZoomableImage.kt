@@ -47,6 +47,7 @@ private const val DOUBLE_TAP_SCALE = 2.5f
 fun ZoomableImage(
     item: MediaItem,
     isCurrent: Boolean,
+    quarterTurns: Int = 0,
     onZoomChanged: (Boolean) -> Unit,
     onTap: () -> Unit,
     modifier: Modifier = Modifier,
@@ -142,7 +143,17 @@ fun ZoomableImage(
                     .build(),
                 contentDescription = item.displayName,
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        rotationZ = quarterTurns * 90f
+                        // A sideways picture must still fit the screen: shrink by the aspect ratio.
+                        if (quarterTurns % 2 == 1 && size.width > 0f && size.height > 0f) {
+                            val k = minOf(size.width / size.height, size.height / size.width)
+                            scaleX = k
+                            scaleY = k
+                        }
+                    },
             )
         }
     }

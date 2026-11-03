@@ -64,6 +64,7 @@ fun AuraNavHost(
                 onOpenAlbum = { album -> navController.navigate(AuraRoutes.album(album)) },
                 onOpenViewer = openViewer,
                 onOpenSettings = openSettings,
+                onOpenTrash = { navController.navigate(AuraRoutes.TRASH) },
             )
         }
         composable(AuraDestination.Search.route) { SearchScreen(onOpenViewer = openViewer, onOpenSettings = openSettings) }
@@ -73,6 +74,7 @@ fun AuraNavHost(
                 onBack = { navController.popBackStack() },
             )
         }
+        composable(AuraRoutes.TRASH) { com.aurax.imagery.ui.gallery.TrashScreen(onBack = { navController.popBackStack() }) }
         composable(AuraRoutes.GLASS_STUDIO) { GlassStudioScreen(onBack = { navController.popBackStack() }) }
 
         composable(

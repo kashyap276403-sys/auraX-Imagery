@@ -8,6 +8,12 @@ sealed interface AlbumRef {
     data class Bucket(val id: Long) : AlbumRef
     data object Favorites : AlbumRef
     data object Videos : AlbumRef
+
+    /** Photos and videos that reached the device in the last 30 days, newest first. */
+    data object RecentlyAdded : AlbumRef
+
+    /** What the user opened in the viewer lately, most recent first. */
+    data object RecentlyViewed : AlbumRef
 }
 
 data class Album(

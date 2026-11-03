@@ -85,6 +85,7 @@ class MediaStoreScanner(private val resolver: ContentResolver) {
                     durationMs = if (isVideo) c.getLong(durationCol) else 0L,
                     bucketId = c.getLong(bucketIdCol),
                     bucketName = c.getString(bucketNameCol).orEmpty().ifBlank { "Unknown" },
+                    dateAdded = added * 1000,
                 )
             }
         }

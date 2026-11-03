@@ -45,6 +45,28 @@ abstract class MediaDao {
 
     @Query(
         """
+        SELECT m.*, (f.mediaId IS NOT NULL) AS isFavorite
+        FROM media AS m
+        LEFT JOIN favorites AS f ON f.mediaId = m.id
+        WHERE m.dateAdded >= :sinceMs
+        ORDER BY m.dateAdded DESC
+        LIMIT 500
+        """,
+    )
+    abstract fun observeRecentlyAdded(sinceMs: Long): Flow<List<MediaRow>>
+
+    @Query(
+        """
+        SELECT m.*, (f.mediaId IS NOT NULL) AS isFavorite
+        FROM media AS m
+        LEFT JOIN favorites AS f ON f.mediaId = m.id
+        WHERE m.id IN (:ids)
+        """,
+    )
+    abstract fun observeByIds(ids: List<Long>): Flow<List<MediaRow>>
+
+    @Query(
+        """
         SELECT m.*, 1 AS isFavorite
         FROM media AS m
         INNER JOIN favorites AS f ON f.mediaId = m.id

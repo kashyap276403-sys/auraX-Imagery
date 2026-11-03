@@ -33,7 +33,7 @@ class AppContainer(context: Context) {
 
     private val database: AuraDatabase by lazy { AuraDatabase.create(appContext) }
 
-    val mediaRepository: MediaRepository by lazy { MediaRepositoryImpl(database.mediaDao()) }
+    val mediaRepository: MediaRepository by lazy { MediaRepositoryImpl(database.mediaDao(), preferences) }
     val bookmarks: BookmarkRepository by lazy { BookmarkRepositoryImpl(database.bookmarkDao()) }
     val history: PlaybackHistoryRepository by lazy { PlaybackHistoryRepositoryImpl(database.playbackProgressDao()) }
     /** For work that must outlive a screen, e.g. saving a resume position as the viewer closes. */

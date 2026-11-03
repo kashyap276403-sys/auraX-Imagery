@@ -28,6 +28,15 @@ object Migrations {
     const val PROGRESS_INDEX =
         "CREATE INDEX IF NOT EXISTS `index_playback_progress_lastPlayedAt` ON `playback_progress` (`lastPlayedAt`)"
 
+    const val MEDIA_DATE_ADDED = "ALTER TABLE `media` ADD COLUMN `dateAdded` INTEGER NOT NULL DEFAULT 0"
+
+    /** Adds the "date added" column. Existing rows get 0 until the next library scan fills it in. */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(MEDIA_DATE_ADDED)
+        }
+    }
+
     /** Adds video bookmarks; the media index and favorites are untouched. */
     val MIGRATION_1_2 = object : Migration(1, 2) {
         override fun migrate(db: SupportSQLiteDatabase) {
