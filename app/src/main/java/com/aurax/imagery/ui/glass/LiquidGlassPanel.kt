@@ -22,6 +22,7 @@ import com.aurax.imagery.ui.theme.AuraCyan
 import com.aurax.imagery.ui.theme.GlassFamily
 import com.aurax.imagery.ui.theme.GlassStyle
 import com.aurax.imagery.ui.theme.LocalGlassStyle
+import com.aurax.imagery.ui.theme.effective
 import dev.chrisbanes.haze.ExperimentalHazeApi
 import dev.chrisbanes.haze.HazeInputScale
 import dev.chrisbanes.haze.HazeState
@@ -54,13 +55,15 @@ fun BoxScope.LiquidBackdrop(
     cornerRadius: Dp,
     modifier: Modifier = Modifier,
 ) {
+    @Suppress("NAME_SHADOWING")
+    val style = style.effective()
     val density = LocalDensity.current
     val tilt = LocalGlassTilt.current
     // One compiled shader per surface, reused for every frame. Null if AGSL compilation fails.
     val isDrop = style.family == GlassFamily.WaterDrop
     val shader = remember(isDrop) { if (isDrop) null else runCatching { LiquidShader() }.getOrNull() }
     val dropShader = remember(isDrop) { if (isDrop) runCatching { WaterDropShader() }.getOrNull() else null }
-    val useShader = (shader != null || dropShader != null) && !style.performanceMode
+    val useShader = (shader != null || dropShader != null) && !style.performanceMode && style.family != GlassFamily.Frosted
     val radiusPx = with(density) { cornerRadius.toPx() }
 
     val fillAlpha = style.opacity.coerceIn(0f, MAX_GLASS_OPACITY)
@@ -110,7 +113,7 @@ fun BoxScope.LiquidBackdrop(
     Box(
         layer.hazeEffect(state = hazeState) {
             this.blurRadius = blurRadius
-            noiseFactor = if (style.performanceMode) 0f else 0.04f
+            noiseFactor = if (style.performanceMode) 0f else if (style.family == GlassFamily.Frosted) 0.09f else 0.04f
             tints = listOf(HazeTint(style.tint.copy(alpha = fillAlpha)))
             backgroundColor = Color.Black
             // Blurring a half-resolution copy is visually identical at large radii and much cheaper.
@@ -160,6 +163,18 @@ fun LiquidGlassPanel(
                     Color.White.copy(alpha = (a * 0.7f).coerceIn(0f, 1f)),
                 ),
             )
+        } else if (style.family == GlassFamily.Crystal) {
+            // A crisp, bright edge: strong where the light lands, almost nothing elsewhere.
+            Brush.linearGradient(
+                listOf(
+                    Color.White.copy(alpha = (a * 1.35f).coerceIn(0f, 1f)),
+                    Color.White.copy(alpha = 0.02f * style.borderOpacity),
+                    Color.White.copy(alpha = (a * 0.8f).coerceIn(0f, 1f)),
+                ),
+            )
+        } else if (style.family == GlassFamily.Frosted) {
+            // A soft, even rim with no hot spot.
+            Brush.linearGradient(listOf(Color.White.copy(alpha = (a * 0.45f).coerceIn(0f, 1f)), Color.White.copy(alpha = (a * 0.3f).coerceIn(0f, 1f))))
         } else Brush.linearGradient(
             listOf(
                 Color.White.copy(alpha = a.coerceIn(0f, 1f)),

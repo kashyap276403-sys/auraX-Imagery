@@ -10,6 +10,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -563,12 +564,15 @@ private fun ColorCard(
 fun GlassStyleCard(style: GlassStyle, onFamily: (GlassFamily) -> Unit, onWaterDrop: (Float) -> Unit) {
     GlassCard {
         SectionTitle("Glass style")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        ) {
             GlassFamily.entries.forEach { family ->
                 FilterChip(
                     selected = style.family == family,
                     onClick = { onFamily(family) },
-                    label = { Text(family.label.removeSuffix(" Liquid Glass"), maxLines = 1) },
+                    label = { Text(family.label.removeSuffix(" Liquid Glass").removeSuffix(" Glass"), maxLines = 1) },
                 )
             }
         }

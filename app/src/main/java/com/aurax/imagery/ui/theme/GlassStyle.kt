@@ -16,6 +16,8 @@ enum class GlassMode(val label: String) {
 enum class GlassFamily(val label: String, val hint: String) {
     Classic("Classic Liquid Glass", "Frosted, translucent, soft blur and fine borders"),
     WaterDrop("Water Drop Liquid Glass", "Glossy, lens-like, stronger refraction and moving highlights"),
+    Frosted("Frosted Glass", "Soft and matte: light blur, fine grain, no refraction"),
+    Crystal("Crystal Glass", "Clear and sharp: very little blur, crisp edge highlights"),
 }
 
 /**
@@ -102,6 +104,22 @@ data class GlassStyle(
             edgeBrightness = 0.45f,
         )
     }
+}
+
+/**
+ * The style the renderer actually draws. Classic and Water Drop use the settings as they are; Frosted and
+ * Crystal reshape them (light grainy blur and no refraction, or a clear pane with strong edge light), so
+ * the same sliders keep working and each style stays recognisably itself.
+ */
+fun GlassStyle.effective(): GlassStyle = when (family) {
+    GlassFamily.Frosted -> copy(blur = blur * 0.55f, distortion = 0f, reflection = reflection * 0.5f, edgeBrightness = edgeBrightness * 0.5f)
+    GlassFamily.Crystal -> copy(
+        blur = blur * 0.3f,
+        distortion = distortion.coerceAtLeast(0.2f),
+        edgeBrightness = edgeBrightness.coerceAtLeast(0.85f),
+        reflection = reflection.coerceAtLeast(0.8f),
+    )
+    else -> this
 }
 
 /** The baseline style of each mode; selecting a mode in Glass Studio starts from this. */

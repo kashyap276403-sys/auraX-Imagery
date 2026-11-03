@@ -39,6 +39,8 @@ fun GlassStyle.windowColor(): Color {
     val dark = Color(0xFF0B0B10)
     return when (family) {
         GlassFamily.Classic -> dark.copy(alpha = 0.96f)
+        GlassFamily.Frosted -> lerp(dark, tint, 0.05f).copy(alpha = 0.90f)
+        GlassFamily.Crystal -> dark.copy(alpha = 0.88f)
         GlassFamily.WaterDrop -> {
             // Higher "transparency" lowers the alpha, but never so far that text loses its contrast.
             val clarity = (opacity / MAX_GLASS_OPACITY).coerceIn(0f, 1f)
@@ -52,6 +54,10 @@ fun GlassStyle.windowRim(): Brush {
     val bo = borderOpacity
     return when (family) {
         GlassFamily.Classic -> Brush.linearGradient(listOf(Color.White.copy(alpha = 0.10f * bo), Color.White.copy(alpha = 0.10f * bo)))
+        GlassFamily.Frosted -> Brush.linearGradient(listOf(Color.White.copy(alpha = 0.08f * bo), Color.White.copy(alpha = 0.05f * bo)))
+        GlassFamily.Crystal -> Brush.linearGradient(
+            listOf(Color.White.copy(alpha = 0.55f * bo), Color.White.copy(alpha = 0.03f * bo), Color.White.copy(alpha = 0.30f * bo)),
+        )
         GlassFamily.WaterDrop -> Brush.linearGradient(
             listOf(
                 Color.White.copy(alpha = (0.42f + 0.25f * waterDrop) * bo),
