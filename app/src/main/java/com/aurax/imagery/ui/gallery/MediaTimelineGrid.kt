@@ -28,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -64,8 +65,11 @@ fun MediaTimelineGrid(
     modifier: Modifier = Modifier,
     contentTopPadding: androidx.compose.ui.unit.Dp = 4.dp,
 ) {
+    val container = (androidx.compose.ui.platform.LocalContext.current.applicationContext as com.aurax.imagery.AuraXApp).container
+    val columnSetting by container.preferences.gridColumns
+        .collectAsStateWithLifecycle(initialValue = 0)
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 104.dp),
+        columns = if (columnSetting in 2..6) GridCells.Fixed(columnSetting) else GridCells.Adaptive(minSize = 104.dp),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = 2.dp,

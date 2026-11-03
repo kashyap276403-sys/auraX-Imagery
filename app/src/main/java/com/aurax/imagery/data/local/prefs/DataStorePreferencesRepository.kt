@@ -144,6 +144,12 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         store.edit { it[VIDEO_CINEMATIC] = mode.name }
     }
 
+    override val gridColumns: Flow<Int> = safeData.map { (it[GRID_COLUMNS] ?: 0).let { v -> if (v in 2..6) v else 0 } }
+
+    override suspend fun setGridColumns(columns: Int) {
+        store.edit { it[GRID_COLUMNS] = if (columns in 2..6) columns else 0 }
+    }
+
     override val recentViewedIds: Flow<List<Long>> =
         safeData.map { prefs -> prefs[RECENT_VIEWED].orEmpty().split(',').mapNotNull { it.toLongOrNull() } }
 
@@ -201,6 +207,7 @@ class DataStorePreferencesRepository(context: Context) : PreferencesRepository {
         val VP_ORIENTATION = stringPreferencesKey("vp_orientation")
         val VP_HAPTICS = booleanPreferencesKey("vp_haptics")
         val VIDEO_CINEMATIC = stringPreferencesKey("video_cinematic")
+        val GRID_COLUMNS = intPreferencesKey("grid_columns")
         val RECENT_VIEWED = stringPreferencesKey("viewer_recent_ids")
         const val MAX_RECENT_VIEWED = 60
         val MOVIE_MODE_IDS = stringSetPreferencesKey("video_movie_mode_ids")

@@ -28,6 +28,8 @@ import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.RotateRight
 import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material.icons.rounded.Slideshow
+import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -136,6 +138,7 @@ private fun ViewerContent(
     var zoomed by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
     // Per-photo quarter turns for viewing only; the file itself is not changed (use Edit to save a rotated copy).
+    var slideshow by remember { mutableStateOf(false) }
     var rotations by remember { mutableStateOf<Map<Long, Int>>(emptyMap()) }
     var orientationLock by remember { mutableStateOf(OrientationLock.Auto) }
     val landscape = orientationLock == OrientationLock.Landscape
@@ -182,6 +185,17 @@ private fun ViewerContent(
     }
 
     val current = items.getOrNull(pagerState.currentPage)
+    // Slideshow: every few seconds move to the next page; it stops on a video, on a tap, and at the end of the list.
+    LaunchedEffect(slideshow, pagerState.currentPage) {
+        if (!slideshow) return@LaunchedEffect
+        if (current?.type == MediaType.Video) {
+            slideshow = false
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(3500)
+        val next = pagerState.currentPage + 1
+        if (next < items.size) pagerState.animateScrollToPage(next) else slideshow = false
+    }
     // Feeds "Recently viewed" in Albums.
     LaunchedEffect(current?.id) { current?.id?.let { id -> container.preferences.recordViewed(id) } }
     val isVideo = current?.type == MediaType.Video
@@ -293,7 +307,7 @@ private fun ViewerContent(
                     isCurrent = isCurrent,
                     quarterTurns = rotations[item.id] ?: 0,
                     onZoomChanged = { isZoomed -> if (pagerState.settledPage == page) zoomed = isZoomed },
-                    onTap = { chromeVisible = !chromeVisible },
+                    onTap = { if (slideshow) slideshow = false else chromeVisible = !chromeVisible },
                 )
             }
         }
@@ -318,6 +332,18 @@ AnimatedVisibility(
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color.White)
                 }
                 // Details (name, date, size, camera info...) live behind this button instead of on screen.
+                if (current != null && current.type == MediaType.Image && items.size > 1) {
+                    IconButton(onClick = {
+                        slideshow = !slideshow
+                        if (slideshow) chromeVisible = false
+                    }) {
+                        Icon(
+                            if (slideshow) Icons.Rounded.Stop else Icons.Rounded.Slideshow,
+                            contentDescription = if (slideshow) "Stop slideshow" else "Start slideshow",
+                            tint = Color.White,
+                        )
+                    }
+                }
                 if (current != null) {
                     IconButton(onClick = { showInfo = true }) {
                         Icon(Icons.Rounded.Info, contentDescription = "Details", tint = Color.White)

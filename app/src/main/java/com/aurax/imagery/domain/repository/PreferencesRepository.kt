@@ -13,6 +13,10 @@ interface PreferencesRepository {
     suspend fun setSort(sort: SortOrder)
     suspend fun setGrouping(grouping: Grouping)
 
+    /** Photo grid columns: 0 = automatic (fit as many as the screen allows), otherwise 2..6. */
+    val gridColumns: Flow<Int>
+    suspend fun setGridColumns(columns: Int)
+
     /** Media ids opened in the viewer, most recent first (kept short). */
     val recentViewedIds: Flow<List<Long>>
     suspend fun recordViewed(mediaId: Long)

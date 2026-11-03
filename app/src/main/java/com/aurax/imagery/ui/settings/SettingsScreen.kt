@@ -110,6 +110,21 @@ fun SettingsScreen(onOpenGlassStudio: () -> Unit, onBack: () -> Unit) {
             }
 
             GlassCard {
+                Heading("Photo grid")
+                val columns by container.preferences.gridColumns.collectAsStateWithLifecycle(initialValue = 0)
+                Body("Columns in Photos, Favorites and albums. Auto fits as many as the screen allows.")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    listOf(0, 2, 3, 4, 5, 6).forEach { n ->
+                        androidx.compose.material3.FilterChip(
+                            selected = columns == n,
+                            onClick = { scope.launch { container.preferences.setGridColumns(n) } },
+                            label = { Text(if (n == 0) "Auto" else n.toString()) },
+                        )
+                    }
+                }
+            }
+
+            GlassCard {
                 Heading("Performance")
                 SwitchRow("Performance mode", "Cheaper blur, no shader, no shadows", style.performanceMode) { on ->
                     glass.update { it.copy(performanceMode = on) }
