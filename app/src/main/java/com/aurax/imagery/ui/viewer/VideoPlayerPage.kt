@@ -331,6 +331,7 @@ fun VideoPlayerPage(
     var modeToast by remember { mutableStateOf<String?>(null) }
     var toastTick by remember { mutableIntStateOf(0) }
     var showVolume by remember { mutableStateOf(false) }
+    var showEqualizer by remember { mutableStateOf(false) }
     var volumeTick by remember { mutableIntStateOf(0) }
     LaunchedEffect(toastTick) {
         if (modeToast != null) {
@@ -528,6 +529,9 @@ fun VideoPlayerPage(
             firstFrameShown = false
         }
     }
+
+    if (isCurrentPage) EqualizerEffect(player)
+    if (showEqualizer && isCurrentPage) EqualizerDialog(onDismiss = { showEqualizer = false })
 
     // Mirror player state into Compose state.
     DisposableEffect(player) {
@@ -942,6 +946,14 @@ fun VideoPlayerPage(
                                 panY = 0f
                             }
                             toast("ZOOM ${zoomLabel(next)}")
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(if (EqState.enabled) "Equalizer · ${EqState.preset.label}" else "Equalizer") },
+                        leadingIcon = { Icon(Icons.Rounded.VolumeUp, contentDescription = null) },
+                        onClick = {
+                            showMenu = false
+                            showEqualizer = true
                         },
                     )
                     DropdownMenuItem(
