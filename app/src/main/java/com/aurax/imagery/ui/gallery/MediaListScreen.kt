@@ -161,6 +161,33 @@ fun MediaListScreen(
                         GlassDropdownMenu(expanded = moreMenu, onDismissRequest = { moreMenu = false }) {
                             DropdownMenuItem(text = { Text("Move to album") }, onClick = { moreMenu = false; pickerMode = "Move" })
                             DropdownMenuItem(text = { Text("Copy to album") }, onClick = { moreMenu = false; pickerMode = "Copy" })
+                            com.aurax.imagery.domain.edit.ExportFormat.entries.filter { it != com.aurax.imagery.domain.edit.ExportFormat.Auto }.forEach { fmt ->
+                                DropdownMenuItem(
+                                    text = { Text("Save copy as ${fmt.label}") },
+                                    onClick = {
+                                        moreMenu = false
+                                        val photos = viewModel.selectedItems().filter { it.type == com.aurax.imagery.domain.model.MediaType.Image }
+                                        if (photos.isEmpty()) {
+                                            android.widget.Toast.makeText(context, "Select photos to convert", android.widget.Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            val saver = com.aurax.imagery.data.media.EditedImageSaver(context.applicationContext)
+                                            scope.launch {
+                                                var done = 0
+                                                photos.forEach { p ->
+                                                    if (saver.save(android.net.Uri.parse(p.uri), com.aurax.imagery.domain.edit.EditState(), fmt).isSuccess) done++
+                                                }
+                                                android.widget.Toast.makeText(
+                                                    context,
+                                                    if (done == photos.size) "Saved $done as ${fmt.label} in AuraX Imagery" else "Saved $done of ${photos.size}",
+                                                    android.widget.Toast.LENGTH_LONG,
+                                                ).show()
+                                                viewModel.clearSelection()
+                                                container.indexer.enqueue()
+                                            }
+                                        }
+                                    },
+                                )
+                            }
                             val bucket = (source as? MediaSource.Album)?.ref as? com.aurax.imagery.domain.model.AlbumRef.Bucket
                             if (bucket != null && state.selectedIds.size == 1) {
                                 DropdownMenuItem(
